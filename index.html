@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mario Coin Quest</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: #1a1a2e;
+  display: flex; align-items: center; justify-content: center;
+}
+#game-wrap {
+  width: 100vw; max-width: 390px;
+  height: 100vh; max-height: 844px;
+  background: #5C94FC;
+  position: relative; overflow: hidden;
+  user-select: none; -webkit-user-select: none; touch-action: none;
+  font-family: 'Courier New', Courier, monospace;
+}
+#ground {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+  background: #6B3A2A;
+}
+#ground::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 18px;
+  background: #56A832;
+}
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: center; align-items: center;
+  padding: 10px 12px 8px;
+  background: rgba(0,0,80,0.6); z-index: 10;
+}
+#score-box { font-size: 12px; color: #fff; letter-spacing: 0.05em; line-height: 1.7; text-align: center; font-weight: bold; }
+#score-val { font-size: 22px; color: #FFD700; font-weight: bold; }
+#start-screen, #gameover-screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(0,0,40,0.88); z-index: 20; gap: 16px;
+}
+#start-screen h1, #gameover-screen h1 {
+  font-size: 22px; color: #FFD700; text-align: center; line-height: 1.5;
+  text-shadow: 3px 3px 0 #8B4513; font-weight: bold;
+}
+#start-screen p, #gameover-screen p {
+  font-size: 13px; color: #fff; text-align: center; line-height: 2;
+}
+.btn {
+  background: #E52222; color: #fff; border: none;
+  font-size: 14px; padding: 14px 32px; border-radius: 6px; cursor: pointer;
+  border-bottom: 4px solid #8B0000;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold; letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+.btn:active { transform: scale(0.95); }
+.item {
+  position: absolute; width: 68px; height: 68px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38px; cursor: pointer; z-index: 5;
+  -webkit-tap-highlight-color: transparent;
+}
+.item.hit { animation: pop 0.2s ease forwards; }
+@keyframes pop {
+  0% { transform: scale(1.4); }
+  100% { transform: scale(0); opacity: 0; }
+}
+.score-float {
+  position: absolute; font-size: 15px; font-weight: bold;
+  z-index: 15; pointer-events: none;
+  animation: floatUp 0.7s ease forwards;
+  font-family: 'Courier New', Courier, monospace;
+  text-shadow: 1px 1px 0 #000;
+}
+@keyframes floatUp {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50px); }
+}
+#mario-sprite {
+  position: absolute; bottom: 82px; left: 16px;
+  width: 68px; height: 68px;
+  z-index: 6;
+}
+#clouds { position: absolute; top: 50px; left: 0; right: 0; height: 60px; overflow: hidden; z-index: 1; }
+.cloud { position: absolute; font-size: 30px; opacity: 0.9; animation: drift linear infinite; }
+@keyframes drift { from { transform: translateX(420px); } to { transform: translateX(-80px); } }
+#combo-msg {
+  position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+  font-size: 14px; font-weight: bold; color: #FFD700;
+  text-shadow: 2px 2px 0 #8B4513;
+  z-index: 15; pointer-events: none; display: none; white-space: nowrap;
+}
+@keyframes comboAnim {
+  0%   { opacity: 1; transform: translateX(-50%) scale(1.3); }
+  100% { opacity: 0; transform: translateX(-50%) scale(0.9); }
+}
+#timer-bar-wrap {
+  position: absolute; bottom: 84px; left: 0; right: 0;
+  height: 7px; background: rgba(0,0,0,0.3); z-index: 8;
+}
+#timer-bar { height: 100%; background: #FFD700; transition: width 0.1s linear, background 0.3s; }
+#score-flash {
+  position: absolute; inset: 0; pointer-events: none; z-index: 12; opacity: 0;
+  transition: opacity 0.1s;
+}
+</style>
+</head>
+<body>
+<div id="game-wrap">
+
+  <div id="clouds">
+    <span class="cloud" style="top:8px;animation-duration:18s;animation-delay:0s;">☁️</span>
+    <span class="cloud" style="top:24px;animation-duration:25s;animation-delay:-9s;">☁️</span>
+    <span class="cloud" style="top:6px;animation-duration:21s;animation-delay:-14s;">☁️</span>
+  </div>
+
+  <div id="hud">
+    <div id="score-box">SCORE<br><span id="score-val">0</span></div>
+  </div>
+
+  <div id="timer-bar-wrap"><div id="timer-bar" style="width:100%"></div></div>
+
+  <!-- 馬力歐像素 SVG -->
+  <svg id="mario-sprite" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+    <!-- 帽子 -->
+    <rect x="4" y="0" width="8" height="2" fill="#E52222"/>
+    <rect x="3" y="2" width="10" height="2" fill="#E52222"/>
+    <!-- 臉 -->
+    <rect x="3" y="4" width="2" height="1" fill="#C68642"/>
+    <rect x="5" y="4" width="6" height="3" fill="#C68642"/>
+    <rect x="11" y="4" width="2" height="1" fill="#C68642"/>
+    <rect x="3" y="5" width="2" height="2" fill="#C68642"/>
+    <rect x="11" y="5" width="2" height="2" fill="#C68642"/>
+    <!-- 眼睛 -->
+    <rect x="5" y="5" width="2" height="1" fill="#000"/>
+    <rect x="9" y="5" width="2" height="1" fill="#000"/>
+    <!-- 鬍子 -->
+    <rect x="4" y="7" width="8" height="1" fill="#5C3317"/>
+    <rect x="3" y="8" width="10" height="1" fill="#5C3317"/>
+    <!-- 身體（紅色工作服） -->
+    <rect x="3" y="9" width="10" height="3" fill="#E52222"/>
+    <!-- 吊帶扣 -->
+    <rect x="5" y="9" width="2" height="1" fill="#FFD700"/>
+    <rect x="9" y="9" width="2" height="1" fill="#FFD700"/>
+    <!-- 褲子（藍色） -->
+    <rect x="2" y="12" width="12" height="2" fill="#1a5cb5"/>
+    <!-- 鞋子 -->
+    <rect x="2" y="14" width="5" height="2" fill="#5C3317"/>
+    <rect x="9" y="14" width="5" height="2" fill="#5C3317"/>
+  </svg>
+
+  <div id="ground"></div>
+  <div id="items-layer"></div>
+  <div id="combo-msg"></div>
+  <div id="score-flash"></div>
+
+  <div id="start-screen">
+    <h1>🍄 MARIO<br>COIN QUEST</h1>
+    <p>🪙 點金幣 +10 分<br>🍌 點香蕉 −10 分<br><br>連擊金幣有加成！</p>
+    <button class="btn" id="start-btn">▶ 開始遊戲</button>
+  </div>
+
+  <div id="gameover-screen" style="display:none">
+    <h1>GAME<br>OVER</h1>
+    <p>最終分數</p>
+    <p style="color:#FFD700;font-size:24px;margin-top:8px;font-weight:bold" id="final-score">0</p>
+    <button class="btn" id="restart-btn">↺ 再玩一次</button>
+  </div>
+
+</div>
+<script>
+(function(){
+  var wrap        = document.getElementById('game-wrap');
+  var itemsLayer  = document.getElementById('items-layer');
+  var scoreVal    = document.getElementById('score-val');
+  var timerBar    = document.getElementById('timer-bar');
+  var startScreen = document.getElementById('start-screen');
+  var goScreen    = document.getElementById('gameover-screen');
+  var finalScore  = document.getElementById('final-score');
+  var comboMsg    = document.getElementById('combo-msg');
+  var mario       = document.getElementById('mario-sprite');
+  var flash       = document.getElementById('score-flash');
+
+  /* 馬力歐有兩個狀態的 SVG 內容 */
+  var marioNormal = mario.innerHTML;
+  var marioHappy  = '<rect x="4" y="0" width="8" height="2" fill="#E52222"/><rect x="3" y="2" width="10" height="2" fill="#E52222"/><rect x="3" y="4" width="2" height="1" fill="#C68642"/><rect x="5" y="4" width="6" height="3" fill="#C68642"/><rect x="11" y="4" width="2" height="1" fill="#C68642"/><rect x="3" y="5" width="2" height="2" fill="#C68642"/><rect x="11" y="5" width="2" height="2" fill="#C68642"/><rect x="5" y="5" width="2" height="1" fill="#000"/><rect x="9" y="5" width="2" height="1" fill="#000"/><rect x="5" y="7" width="6" height="1" fill="#C68642"/><rect x="4" y="6" width="1" height="1" fill="#C68642"/><rect x="11" y="6" width="1" height="1" fill="#C68642"/><rect x="3" y="9" width="10" height="3" fill="#E52222"/><rect x="5" y="9" width="2" height="1" fill="#FFD700"/><rect x="9" y="9" width="2" height="1" fill="#FFD700"/><rect x="2" y="12" width="12" height="2" fill="#1a5cb5"/><rect x="2" y="14" width="5" height="2" fill="#5C3317"/><rect x="9" y="14" width="5" height="2" fill="#5C3317"/>';
+  var marioDizzy  = '<rect x="4" y="0" width="8" height="2" fill="#E52222"/><rect x="3" y="2" width="10" height="2" fill="#E52222"/><rect x="3" y="4" width="2" height="1" fill="#C68642"/><rect x="5" y="4" width="6" height="3" fill="#C68642"/><rect x="11" y="4" width="2" height="1" fill="#C68642"/><rect x="3" y="5" width="2" height="2" fill="#C68642"/><rect x="11" y="5" width="2" height="2" fill="#C68642"/><rect x="5" y="5" width="1" height="1" fill="#000"/><rect x="7" y="4" width="1" height="1" fill="#000"/><rect x="9" y="5" width="1" height="1" fill="#000"/><rect x="11" y="4" width="1" height="1" fill="#000"/><rect x="5" y="8" width="1" height="1" fill="#5C3317"/><rect x="6" y="7" width="2" height="1" fill="#5C3317"/><rect x="8" y="8" width="2" height="1" fill="#5C3317"/><rect x="10" y="7" width="1" height="1" fill="#5C3317"/><rect x="3" y="9" width="10" height="3" fill="#E52222"/><rect x="5" y="9" width="2" height="1" fill="#FFD700"/><rect x="9" y="9" width="2" height="1" fill="#FFD700"/><rect x="2" y="12" width="12" height="2" fill="#1a5cb5"/><rect x="2" y="14" width="5" height="2" fill="#5C3317"/><rect x="9" y="14" width="5" height="2" fill="#5C3317"/>';
+
+  function setMario(state){
+    if(state==='happy')      mario.innerHTML = marioHappy;
+    else if(state==='dizzy') mario.innerHTML = marioDizzy;
+    else                     mario.innerHTML = marioNormal;
+  }
+
+  var score=0, running=false, items=[];
+  var spawnTimer=null, gameTimer=null;
+  var combo=0, comboTimeout=null, timeLeft=60;
+
+  function startGame(){
+    score=0; running=true; combo=0; timeLeft=60;
+    items=[]; itemsLayer.innerHTML='';
+    scoreVal.textContent='0';
+    timerBar.style.width='100%';
+    timerBar.style.background='#FFD700';
+    startScreen.style.display='none';
+    goScreen.style.display='none';
+    setMario('normal');
+    scheduleSpawn();
+    startCountdown();
+  }
+
+  function endGame(){
+    running=false;
+    clearTimeout(spawnTimer); clearInterval(gameTimer);
+    items.forEach(function(it){ if(it.el&&it.el.parentNode) it.el.remove(); });
+    items=[];
+    finalScore.textContent=score;
+    goScreen.style.display='flex';
+  }
+
+  function startCountdown(){
+    gameTimer=setInterval(function(){
+      if(!running) return;
+      timeLeft-=0.1;
+      var p=Math.max(0,timeLeft/60);
+      timerBar.style.width=(p*100)+'%';
+      timerBar.style.background=p>0.4?'#FFD700':p>0.2?'#FF8800':'#FF2222';
+      if(timeLeft<=0){ clearInterval(gameTimer); endGame(); }
+    },100);
+  }
+
+  function scheduleSpawn(){
+    if(!running) return;
+    spawnTimer=setTimeout(function(){ spawnItem(); scheduleSpawn(); }, 550+Math.random()*650);
+  }
+
+  function spawnItem(){
+    if(!running) return;
+    var isCoin=Math.random()>0.35;
+    var el=document.createElement('div');
+    el.className='item';
+    el.textContent=isCoin?'🪙':'🍌';
+    var maxX=Math.max(wrap.offsetWidth-60,60);
+    var x=8+Math.random()*(maxX-8);
+    el.style.left=x+'px';
+    el.style.top='55px';
+    itemsLayer.appendChild(el);
+    var item={el:el,isCoin:isCoin,x:x,y:55,vy:0,alive:true};
+    items.push(item);
+    el.addEventListener('click',function(){ onTap(item); });
+    el.addEventListener('touchstart',function(e){ e.preventDefault(); onTap(item); },{passive:false});
+  }
+
+  function onTap(item){
+    if(!item.alive||!running) return;
+    item.alive=false;
+    item.el.classList.add('hit');
+    if(item.isCoin){
+      combo++;
+      clearTimeout(comboTimeout);
+      comboTimeout=setTimeout(function(){ combo=0; },1500);
+      var pts=combo>=3?30:combo===2?20:10;
+      score+=pts;
+      scoreVal.textContent=score;
+      showFloat(item.x,item.y,'+'+pts+(combo>=3?' 🔥':''),'#FFD700');
+      if(combo>=3) showCombo('🔥 '+combo+' COMBO!');
+      setMario('happy');
+      setTimeout(function(){ setMario('normal'); },350);
+    } else {
+      combo=0;
+      score=Math.max(0,score-10);
+      scoreVal.textContent=score;
+      showFloat(item.x,item.y,'−10','#FF4444');
+      flashScreen('rgba(255,0,0,0.2)');
+      setMario('dizzy');
+      setTimeout(function(){ setMario('normal'); },450);
+    }
+    setTimeout(function(){ if(item.el.parentNode) item.el.remove(); },250);
+  }
+
+  function showFloat(x,y,text,color){
+    var el=document.createElement('div');
+    el.className='score-float';
+    el.style.left=(x+8)+'px';
+    el.style.top=y+'px';
+    el.style.color=color;
+    el.textContent=text;
+    wrap.appendChild(el);
+    setTimeout(function(){ if(el.parentNode) el.remove(); },750);
+  }
+
+  function showCombo(text){
+    comboMsg.textContent=text;
+    comboMsg.style.display='block';
+    comboMsg.style.animation='none';
+    requestAnimationFrame(function(){
+      comboMsg.style.animation='comboAnim 0.8s ease forwards';
+    });
+    setTimeout(function(){ comboMsg.style.display='none'; },850);
+  }
+
+  function flashScreen(color){
+    flash.style.background=color;
+    flash.style.opacity='1';
+    setTimeout(function(){ flash.style.opacity='0'; },120);
+  }
+
+  var lastTime=null;
+  function gameLoop(ts){
+    if(!lastTime) lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);
+    lastTime=ts;
+    if(running){
+      var groundY=wrap.offsetHeight-80-52;
+      items=items.filter(function(item){
+        if(!item.alive){ return !!item.el.parentNode; }
+        item.vy+=560*dt;
+        item.y+=item.vy*dt;
+        item.el.style.top=item.y+'px';
+        if(item.y>groundY){
+          item.alive=false;
+          if(item.el.parentNode) item.el.remove();
+          return false;
+        }
+        return true;
+      });
+    }
+    requestAnimationFrame(gameLoop);
+  }
+
+  document.getElementById('start-btn').addEventListener('click',startGame);
+  document.getElementById('restart-btn').addEventListener('click',startGame);
+  requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>
