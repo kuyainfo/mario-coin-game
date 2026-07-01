@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mario Runner</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: #1a1a2e;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+#game-wrap {
+  width: 100vw; max-width: 390px;
+  height: 100vh; max-height: 844px;
+  background: #5C94FC;
+  position: relative; overflow: hidden;
+  user-select: none; -webkit-user-select: none; touch-action: none;
+  font-family: 'Courier New', Courier, monospace;
+}
+canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px 8px;
+  background: rgba(0,0,80,0.55); z-index: 10;
+  font-size: 12px; color: #fff; font-weight: bold; letter-spacing: 0.04em;
+}
+#hud .val { color: #FFD700; font-size: 16px; }
+#start-screen, #gameover-screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(0,0,40,0.88); z-index: 20; gap: 14px; padding: 24px;
+}
+#start-screen h1, #gameover-screen h1 {
+  font-size: 22px; color: #FFD700; text-align: center; line-height: 1.5;
+  text-shadow: 3px 3px 0 #8B4513; font-weight: bold;
+}
+#start-screen p, #gameover-screen p {
+  font-size: 12.5px; color: #fff; text-align: center; line-height: 1.9;
+}
+.btn {
+  background: #E52222; color: #fff; border: none;
+  font-size: 14px; padding: 14px 32px; border-radius: 6px; cursor: pointer;
+  border-bottom: 4px solid #8B0000;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold; letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+.btn:active { transform: scale(0.95); }
+#result-box { display:flex; flex-direction:column; gap:6px; align-items:center; margin: 4px 0 8px; }
+#result-box .row { font-size: 13px; color:#fff; }
+#result-box .row b { color:#FFD700; font-size: 16px; }
+#final-score { font-size: 30px; color:#FFD700; font-weight:bold; margin-top:4px; }
+</style>
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div>時間 <span class="val" id="time-val">0.0</span>s</div>
+    <div>🪙 <span class="val" id="coin-val">0</span></div>
+    <div>分數 <span class="val" id="score-val">0</span></div>
+  </div>
+
+  <div id="start-screen">
+    <h1>🍄 MARIO<br>RUNNER</h1>
+    <p>點一下：跳躍<br>滯空中再點一下：二段跳（更高）<br><br>吃金幣加分・撞水管即結束<br>存活越久分數越高！</p>
+    <button class="btn" id="start-btn">▶ 開始遊戲</button>
+  </div>
+
+  <div id="gameover-screen" style="display:none">
+    <h1>GAME<br>OVER</h1>
+    <div id="result-box">
+      <div class="row">存活時間：<b id="r-time">0.0</b> 秒</div>
+      <div class="row">金幣數量：<b id="r-coin">0</b> 枚</div>
+    </div>
+    <div id="final-score">0</div>
+    <button class="btn" id="restart-btn">↺ 再玩一次</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var wrap = document.getElementById('game-wrap');
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var startScreen = document.getElementById('start-screen');
+  var goScreen = document.getElementById('gameover-screen');
+  var timeVal = document.getElementById('time-val');
+  var coinVal = document.getElementById('coin-val');
+  var scoreVal = document.getElementById('score-val');
+  var rTime = document.getElementById('r-time');
+  var rCoin = document.getElementById('r-coin');
+  var finalScore = document.getElementById('final-score');
+
+  // ── 邏輯座標系：固定寬度，高度依容器實際比例動態換算，避免右側破圖 ──
+  var W = 390;
+  var GROUND_H = 80;
+  var MARIO_X = 62, MARIO_W = 44, MARIO_H = 54;
+  var UNIT = MARIO_H; // 以馬力歐身高作為水管／金幣高度單位
+  var H, GROUND_Y, BASE_Y;
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  var mario = { y: 0, vy: 0, jumping: false, onPipe: null, jumpsUsed: 0, legFrame: 0, legTimer: 0 };
+
+  function resize(){
+    var rect = wrap.getBoundingClientRect();
+    var scale = rect.width / W; // 寬度永遠滿版，不再取寬高最小值造成裁切
+    H = rect.height / scale;    // 高度依實際可視比例換算，畫面不留白也不破圖
+    GROUND_Y = H - GROUND_H;
+    BASE_Y = GROUND_Y - MARIO_H;
+    if (!mario.jumping && !mario.onPipe) mario.y = BASE_Y;
+    cv.width = rect.width * DPR;
+    cv.height = rect.height * DPR;
+    ctx.setTransform(DPR * scale, 0, 0, DPR * scale, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ── 常數 ──
+  var GRAVITY = 1730;        // px/s^2（提高重力讓跳躍更俐落，總滯空時間縮短約10%，高度維持不變）
+  var JUMP1_VY = 510;        // 第一跳起跳初速（與重力同步調整，落地時間加快但高度不變）
+  var SECOND_JUMP_MARGIN = 1.25; // 二段跳目標高度餘裕（略放寬，避免剛好卡在水管邊緣）
+
+  var SPEED1 = 280, SPEED2 = 380, SPEED3 = 480; // 整體提速，移動更滑順
+  var RAMP = 3; // 漸變秒數
+
+  var COIN_SCORE = 3;
+  var TIME_SCORE_PER_SEC = 7;
+
+  // 金幣三層高度：與馬力歐等高／1倍馬力歐高／2倍馬力歐高
+  var COIN_LEVEL_EQUAL = -(MARIO_H / 2);
+  var COIN_LEVEL_1 = -(UNIT + 16);
+  var COIN_LEVEL_2 = -(UNIT * 2 + 16);
+
+  // ── 狀態 ──
+  var state = 'start'; // start | playing | over
+  var t = 0;            // 遊戲經過秒數
+  var pipes = [];
+  var coins = [];
+  var coinCount = 0;
+  var pipeCooldown = 260; // 距離累積（px）到達才可再生新水管
+  var coinCooldown = 0.9; // 秒
+  var clouds = [
+    { x: 60, y: 70, r: 14 }, { x: 180, y: 100, r: 16 }, { x: 300, y: 60, r: 13 }, { x: 420, y: 90, r: 15 }
+  ];
+
+  function currentSpeed(tt){
+    if (tt < 27) return SPEED1;
+    if (tt < 30) return SPEED1 + (SPEED2 - SPEED1) * ((tt - 27) / RAMP);
+    if (tt < 42) return SPEED2;
+    if (tt < 45) return SPEED2 + (SPEED3 - SPEED2) * ((tt - 42) / RAMP);
+    return SPEED3;
+  }
+
+  // ── 產生水管：依速度反推安全間距，並避開正在畫面上的金幣串生成點 ──
+  function spawnPipe(){
+    var w = 40;
+    var spawnX = W + 30;
+    var margin = 190; // 涵蓋最寬金幣串跨距（最寬約136px）＋緩衝，避免串頭尾被水管夾住
+    for (var ci = 0; ci < coins.length; ci++){
+      if (coins[ci].x > spawnX - margin && coins[ci].x < spawnX + w + margin){
+        pipeCooldown = 45; // 生成點被金幣串佔用，短延遲後重試
+        return;
+      }
+    }
+    var tall = Math.random() < 0.5;
+    var h = tall ? UNIT * 2 : UNIT; // 1倍馬力歐高／2倍馬力歐高
+    var spd = currentSpeed(t);
+    var target = h * 1.15;
+    var veff = Math.sqrt(2 * GRAVITY * target); // 反推清該高度所需的等效起跳初速
+    var flightTime = (2 * veff) / GRAVITY;      // 對稱拋物線：上升+下降總時間
+    var buffer = 0.4; // 反應＋落地緩衝
+    var minGap = spd * (flightTime + buffer);
+    pipes.push({ x: spawnX, y: GROUND_Y - h, w: w, h: h, cleared: false });
+    pipeCooldown = minGap + 20 + Math.random() * 70;
+  }
+
+  // ── 金幣串型：低平／弧線／階梯，並避免與水管視覺重疊 ──
+  function findConflictPipeTop(x0, x1){
+    var top = null;
+    for (var i = 0; i < pipes.length; i++){
+      var p = pipes[i];
+      if (p.x + p.w > x0 && p.x < x1){
+        if (top === null || p.y < top) top = p.y; // 取最高（y 最小）的水管
+      }
+    }
+    return top;
+  }
+
+  function spawnCoins(){
+    var startX = W + 30;
+    var r = Math.random();
+    var pattern, pts = [];
+    if (r < 0.45){
+      // 低平串：與馬力歐等高，跑步順路吃到不需跳躍
+      pattern = 'flat';
+      var n = 3 + Math.floor(Math.random() * 3);
+      for (var i = 0; i < n; i++) pts.push({ dx: i * 34, dy: COIN_LEVEL_EQUAL });
+    } else if (r < 0.8){
+      // 弧線串：對應一次長按跳躍的拋物線，峰值落在2倍馬力歐高
+      pattern = 'arc';
+      var arcN = 6;
+      for (var j = 0; j < arcN; j++){
+        var f = j / (arcN - 1);
+        var arcH = Math.sin(f * Math.PI);
+        pts.push({ dx: j * 26, dy: COIN_LEVEL_EQUAL + (COIN_LEVEL_2 - COIN_LEVEL_EQUAL) * arcH });
+      }
+    } else {
+      // 階梯串：三步分別對應等高／1倍／2倍馬力歐高，需連續變化跳躍節奏
+      pattern = 'stair';
+      var stairLevels = [COIN_LEVEL_EQUAL, COIN_LEVEL_1, COIN_LEVEL_2, COIN_LEVEL_1];
+      for (var k = 0; k < stairLevels.length; k++){
+        pts.push({ dx: k * 40, dy: stairLevels[k] });
+      }
+    }
+
+    // 檢查完整區塊是否與任一水管視覺重疊，若重疊則整組精準上移到該水管上方
+    var minDx = pts[0].dx, maxDx = pts[pts.length - 1].dx;
+    var maxDy = Math.max.apply(null, pts.map(function(p){ return p.dy; })); // 最接近地面的點
+    var x0 = startX + minDx - 8, x1 = startX + maxDx + 20;
+    var conflictTop = findConflictPipeTop(x0, x1);
+    if (conflictTop !== null){
+      var margin = 14;
+      var lowestCoinY = GROUND_Y + maxDy;
+      if (lowestCoinY > conflictTop - margin){
+        var shift = (conflictTop - margin) - lowestCoinY; // 負值＝往上移
+        pts = pts.map(function(p){ return { dx: p.dx, dy: p.dy + shift }; });
+      }
+    }
+
+    for (var m = 0; m < pts.length; m++){
+      coins.push({ x: startX + pts[m].dx, y: GROUND_Y + pts[m].dy, r: 15, taken: false });
+    }
+    coinCooldown = 0.7 + Math.random() * 0.9;
+  }
+
+  // ── 輸入：單擊＝跳躍，滯空中再點一次＝二段跳，站在水管上也可再次起跳 ──
+  function secondJumpVy(){
+    var currentHeight = BASE_Y - mario.y; // 目前高於地面的距離
+    var target = UNIT * 2 * SECOND_JUMP_MARGIN; // 目標：清2格水管＋餘裕
+    var remaining = target - currentHeight;
+    if (remaining < 20) remaining = 20; // 保底一點手感，避免接近頂點時幾乎沒反應
+    return -Math.sqrt(2 * GRAVITY * remaining);
+  }
+
+  function doJump(){
+    if (state !== 'playing') return;
+    if (mario.onPipe){
+      mario.onPipe = null;
+      mario.jumping = true; mario.vy = -JUMP1_VY; mario.jumpsUsed = 1;
+      return;
+    }
+    if (!mario.jumping){
+      mario.jumping = true; mario.vy = -JUMP1_VY; mario.jumpsUsed = 1;
+    } else if (mario.jumpsUsed < 2){
+      mario.vy = secondJumpVy(); // 依目前高度反推，不論何時按下都穩定收斂到同一安全高度
+      mario.jumpsUsed = 2;
+    }
+  }
+
+  wrap.addEventListener('touchstart', function(e){ e.preventDefault(); doJump(); }, { passive: false });
+  wrap.addEventListener('mousedown', function(){ doJump(); });
+
+  // ── 遊戲流程 ──
+  function startGame(){
+    state = 'playing'; t = 0;
+    mario.y = BASE_Y; mario.vy = 0; mario.jumping = false; mario.onPipe = null; mario.jumpsUsed = 0;
+    pipes = []; coins = []; coinCount = 0;
+    pipeCooldown = 300; coinCooldown = 0.6;
+    startScreen.style.display = 'none';
+    goScreen.style.display = 'none';
+    updateHud(0, 0, 0);
+  }
+
+  function endGame(){
+    state = 'over';
+    var timeScore = Math.floor(t * TIME_SCORE_PER_SEC);
+    var coinScore = coinCount * COIN_SCORE;
+    var total = timeScore + coinScore;
+    rTime.textContent = t.toFixed(1);
+    rCoin.textContent = coinCount;
+    finalScore.textContent = total;
+    goScreen.style.display = 'flex';
+  }
+
+  function updateHud(tt, cc, sc){
+    timeVal.textContent = tt.toFixed(1);
+    coinVal.textContent = cc;
+    scoreVal.textContent = sc;
+  }
+
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('restart-btn').addEventListener('click', startGame);
+
+  // ── 主迴圈 ──
+  var last = null;
+  var groundScroll = 0;
+
+  function loop(ts){
+    if (!last) last = ts;
+    var dt = Math.min((ts - last) / 1000, 0.033);
+    last = ts;
+
+    if (state === 'playing'){
+      t += dt;
+      var spd = currentSpeed(t);
+      groundScroll = (groundScroll + spd * dt) % 40;
+
+      // 雲朵視差捲動（速度較地面慢，避免與地面重疊感）
+      for (var cl = 0; cl < clouds.length; cl++){
+        clouds[cl].x -= spd * 0.25 * dt;
+        if (clouds[cl].x < -50){
+          clouds[cl].x = W + 50 + Math.random() * 60;
+          clouds[cl].y = 50 + Math.random() * 90;
+        }
+      }
+
+      var mx0 = MARIO_X, mx1 = MARIO_X + MARIO_W;
+      var prevFootY = mario.y + MARIO_H; // 本幀物理更新前的腳底高度
+
+      // 馬力歐物理：站在水管上 → 拋物線跳躍／墜落 → 一般跑步
+      if (mario.onPipe){
+        var op = mario.onPipe;
+        if (op.x + op.w <= mx0 || op.x >= mx1){
+          // 水管已完全從馬力歐腳下移出，前進過程中自然掉回路面
+          mario.onPipe = null;
+          mario.jumping = true; mario.vy = 0;
+        } else {
+          mario.y = op.y - MARIO_H; // 站穩在水管頂，隨水管一起前進
+          mario.legTimer += dt;
+          if (mario.legTimer > 0.11){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
+        }
+      } else if (mario.jumping){
+        mario.vy += GRAVITY * dt;
+        mario.y += mario.vy * dt;
+        if (mario.y >= BASE_Y){
+          mario.y = BASE_Y; mario.jumping = false; mario.vy = 0; mario.jumpsUsed = 0;
+        }
+      } else {
+        mario.legTimer += dt;
+        if (mario.legTimer > 0.11){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
+      }
+
+      // 水管
+      pipeCooldown -= spd * dt;
+      if (pipeCooldown <= 0) spawnPipe();
+      for (var i = pipes.length - 1; i >= 0; i--){
+        pipes[i].x -= spd * dt;
+        if (pipes[i].x + pipes[i].w < -20) pipes.splice(i, 1);
+      }
+
+      // 金幣
+      coinCooldown -= dt;
+      if (coinCooldown <= 0) spawnCoins();
+      for (var j = coins.length - 1; j >= 0; j--){
+        coins[j].x -= spd * dt;
+        if (coins[j].x < -30 || coins[j].taken) coins.splice(j, 1);
+      }
+
+      var my0 = mario.y, my1 = mario.y + MARIO_H;
+
+      // 平台判定：只有「上一幀腳底還在管頂之上、這一幀才下降穿越管頂」才算真正站上（避免瞬移／誤判）
+      if (!mario.onPipe && mario.jumping && mario.vy > 0){
+        for (var pl = 0; pl < pipes.length; pl++){
+          var plp = pipes[pl];
+          if (mx1 > plp.x && mx0 < plp.x + plp.w && prevFootY <= plp.y && my1 >= plp.y){
+            mario.y = plp.y - MARIO_H;
+            mario.vy = 0; mario.jumping = false; mario.jumpsUsed = 0;
+            mario.onPipe = plp; plp.cleared = true;
+            my0 = mario.y; my1 = mario.y + MARIO_H;
+            break;
+          }
+        }
+      }
+
+      // 碰撞：水管（僅檢查面對馬力歐的前緣；曾經飛越／已站上過的水管不再判死）
+      var PIPE_FACE = 10; // 前緣碰撞判定厚度
+      for (var p = 0; p < pipes.length; p++){
+        var pp = pipes[p];
+        if (mx1 > pp.x && mx0 < pp.x + PIPE_FACE){
+          if (my1 <= pp.y){
+            pp.cleared = true; // 這一刻馬力歐高於水管頂，記錄已飛越
+          } else if (!pp.cleared){
+            endGame();
+            break;
+          }
+        }
+      }
+      // 碰撞：金幣
+      if (state === 'playing'){
+        for (var c = 0; c < coins.length; c++){
+          var co = coins[c];
+          var cx0 = co.x - co.r, cx1 = co.x + co.r, cy0 = co.y - co.r, cy1 = co.y + co.r;
+          if (!co.taken && mx1 > cx0 && mx0 < cx1 && my1 > cy0 && my0 < cy1){
+            co.taken = true; coinCount++;
+          }
+        }
+      }
+
+      var liveScore = Math.floor(t * TIME_SCORE_PER_SEC) + coinCount * COIN_SCORE;
+      updateHud(t, coinCount, liveScore);
+    }
+
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+
+    // 天空
+    ctx.fillStyle = '#5C94FC';
+    ctx.fillRect(0, 0, W, H);
+
+    // 雲（依 clouds 陣列即時捲動）
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (var ci = 0; ci < clouds.length; ci++){
+      drawCloud(clouds[ci].x, clouds[ci].y);
+    }
+
+    // 地面
+    ctx.fillStyle = '#56A832';
+    ctx.fillRect(0, GROUND_Y, W, 18);
+    ctx.fillStyle = '#6B3A2A';
+    ctx.fillRect(0, GROUND_Y + 18, W, GROUND_H - 18);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    for (var g = -1; g < W / 40 + 1; g++){
+      ctx.fillRect(g * 40 - groundScroll, GROUND_Y + 18, 2, GROUND_H - 18);
+    }
+
+    // 水管
+    pipes.forEach(function(p){ drawPipe(p.x, p.y, p.w, p.h); });
+
+    // 金幣
+    coins.forEach(function(c){ if (!c.taken) drawCoin(c.x, c.y, c.r); });
+
+    // 馬力歐
+    drawMario(MARIO_X, mario.y, mario.jumping, mario.legFrame);
+  }
+
+  function drawCloud(x, y){
+    ctx.beginPath();
+    ctx.arc(x, y, 14, 0, Math.PI * 2);
+    ctx.arc(x + 14, y - 6, 16, 0, Math.PI * 2);
+    ctx.arc(x + 30, y, 14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawPipe(x, y, w, h){
+    ctx.fillStyle = '#2E9E2E';
+    ctx.fillRect(x, y + 14, w, h - 14);
+    ctx.fillStyle = '#1F7A1F';
+    ctx.fillRect(x, y + 14, 5, h - 14);
+    ctx.fillStyle = '#3FBF3F';
+    ctx.fillRect(x - 4, y, w + 8, 16);
+    ctx.fillStyle = '#1F7A1F';
+    ctx.fillRect(x - 4, y, 5, 16);
+    ctx.strokeStyle = '#0F5C0F';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - 4, y, w + 8, h);
+  }
+
+  function drawCoin(x, y, r){
+    ctx.save();
+    ctx.translate(x, y);
+    var grd = ctx.createRadialGradient(-r*0.3, -r*0.3, 1, 0, 0, r);
+    grd.addColorStop(0, '#FFF6C0');
+    grd.addColorStop(0.5, '#FFD700');
+    grd.addColorStop(1, '#B8860B');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillRect(-3, -r + 3, 6, (r - 3) * 2);
+    ctx.restore();
+  }
+
+  function drawMario(x, y, jumping, leg){
+    ctx.save();
+    ctx.translate(x, y);
+    var s = MARIO_W / 16;
+    function rect(px, py, pw, ph, color){ ctx.fillStyle = color; ctx.fillRect(px*s, py*s, pw*s, ph*s); }
+    // 帽子
+    rect(4,0,8,2,'#E52222'); rect(3,2,10,2,'#E52222');
+    // 臉
+    rect(3,4,2,1,'#C68642'); rect(5,4,6,3,'#C68642'); rect(11,4,2,1,'#C68642');
+    rect(3,5,2,2,'#C68642'); rect(11,5,2,2,'#C68642');
+    // 眼睛
+    rect(5,5,2,1,'#000'); rect(9,5,2,1,'#000');
+    // 鬍子
+    rect(4,7,8,1,'#5C3317'); rect(3,8,10,1,'#5C3317');
+    // 身體
+    rect(3,9,10,3,'#E52222');
+    rect(5,9,2,1,'#FFD700'); rect(9,9,2,1,'#FFD700');
+    // 褲子
+    rect(2,12,12,2,'#1a5cb5');
+    // 腳（跑步交替 / 跳躍併攏）
+    if (jumping){
+      rect(2,14,5,2,'#5C3317'); rect(9,14,5,2,'#5C3317');
+    } else if (leg === 0){
+      rect(1,14,5,2,'#5C3317'); rect(10,13,5,2,'#5C3317');
+    } else {
+      rect(0,13,5,2,'#5C3317'); rect(11,14,5,2,'#5C3317');
+    }
+    ctx.restore();
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
