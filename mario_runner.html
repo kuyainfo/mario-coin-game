@@ -108,13 +108,19 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 
   function resize(){
     var rect = wrap.getBoundingClientRect();
-    var scale = rect.width / W; // 寬度永遠滿版，不再取寬高最小值造成裁切
-    H = rect.height / scale;    // 高度依實際可視比例換算，畫面不留白也不破圖
+    var actualWidth = rect.width || W; // Line 容器初始寬度可能為 0，改用預設
+    var actualHeight = rect.height || window.innerHeight;
+    if (actualWidth < 100) actualWidth = W; // 安全下限：太窄改預設
+    if (actualHeight < 200) actualHeight = 844; // 安全下限：太矮改預設
+    
+    var scale = actualWidth / W;
+    H = actualHeight / scale;
     GROUND_Y = H - GROUND_H;
     BASE_Y = GROUND_Y - MARIO_H;
     if (!mario.jumping && !mario.onPipe) mario.y = BASE_Y;
-    cv.width = rect.width * DPR;
-    cv.height = rect.height * DPR;
+    
+    cv.width = Math.max(actualWidth * DPR, 390 * DPR);
+    cv.height = Math.max(actualHeight * DPR, 600 * DPR);
     ctx.setTransform(DPR * scale, 0, 0, DPR * scale, 0, 0);
   }
   window.addEventListener('resize', resize);
