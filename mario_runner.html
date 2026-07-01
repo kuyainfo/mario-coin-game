@@ -299,8 +299,16 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
     scoreVal.textContent = sc;
   }
 
-  document.getElementById('start-btn').addEventListener('click', startGame);
-  document.getElementById('restart-btn').addEventListener('click', startGame);
+  var startBtn = document.getElementById('start-btn');
+  var restartBtn = document.getElementById('restart-btn');
+  
+  function bindButton(btn, callback){
+    btn.addEventListener('touchend', function(e){ e.preventDefault(); callback(); }, { passive: false });
+    btn.addEventListener('click', callback);
+  }
+  
+  bindButton(startBtn, startGame);
+  bindButton(restartBtn, startGame);
 
   // ── 主迴圈 ──
   var last = null;
