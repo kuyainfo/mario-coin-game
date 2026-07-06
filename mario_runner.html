@@ -460,6 +460,11 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
     if (typeof window.uploadScore === 'function'){ window.uploadScore(playerName, total); }
   }
 
+  // 後台「全體停止」訊號 → 以死亡流程強制結算（不演終點旗幟）
+  window.__marioForceEnd = function(){
+    if (state === 'playing' || state === 'finish'){ endGame(false); }
+  };
+
   function updateHud(tt, cc, sc){
     timeVal.textContent = tt.toFixed(1);
     coinVal.textContent = cc;
@@ -743,7 +748,7 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
 <!-- ── Firebase 分數上傳（獨立 module，透過 window 橋接主遊戲）── -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 /* ============================================================
    ▼▼▼ Firebase config（Mario 專案）▼▼▼
@@ -768,6 +773,19 @@ try {
   dbReady = true;
 } catch (e) {
   console.warn("Firebase 尚未設定，分數暫不上傳：", e);
+}
+
+// 監聽後台「全體停止」訊號：偵測到新時間戳 → 強制結算
+if (dbReady){
+  let forceEndBaseline = null;
+  onValue(ref(db, 'mario-control/forceEnd'), (snap)=>{
+    const v = snap.exists() ? snap.val() : 0;
+    if (forceEndBaseline === null){ forceEndBaseline = v; return; } // 首次載入建基準，不觸發
+    if (v && v !== forceEndBaseline){
+      forceEndBaseline = v;
+      if (typeof window.__marioForceEnd === 'function') window.__marioForceEnd();
+    }
+  });
 }
 
 window.uploadScore = async function(name, score){
