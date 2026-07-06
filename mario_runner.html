@@ -583,7 +583,7 @@ const DB_PATH = "mario-scores";   // 後台排行榜路徑須一致
 let db = null, dbReady = false;
 try {
   const app = initializeApp(firebaseConfig);
-  db = getDatabase(app);
+  db = getDatabase(app, "https://mario-runner-4ca38-default-rtdb.asia-southeast1.firebasedatabase.app");
   dbReady = true;
 } catch (e) {
   console.warn("Firebase 尚未設定，分數暫不上傳：", e);

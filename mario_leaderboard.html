@@ -220,7 +220,7 @@ const DB_PATH = "mario-scores";   // 遊戲主檔上傳路徑須一致
 /* ============================================================ */
 
 const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
+const db  = getDatabase(app, "https://mario-runner-4ca38-default-rtdb.asia-southeast1.firebasedatabase.app");
 
 // 背景星星
 const bgEl = document.getElementById('bg');
