@@ -107,8 +107,12 @@
     text-shadow:0 2px 0 rgba(0,0,0,.35); }
   .champ-empty .champ-score{ color:rgba(255,255,255,.4); text-shadow:none; }
 
-  /* 榜單 */
-  #board-wrap{ flex:1; overflow:hidden; display:flex; flex-direction:column; gap:9px; }
+  /* 榜單（可垂直捲動看完所有人；聚光大卡在此容器外，維持凍結） */
+  #board-wrap{ flex:1; min-height:0; overflow-y:auto; overflow-x:hidden;
+    display:flex; flex-direction:column; gap:9px; padding-right:6px; }
+  #board-wrap::-webkit-scrollbar{ width:8px; }
+  #board-wrap::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.18); border-radius:4px; }
+  #board-wrap::-webkit-scrollbar-track{ background:transparent; }
   #empty-state{ display:none; flex:1; flex-direction:column; align-items:center;
     justify-content:center; color:rgba(255,255,255,.4); gap:10px; }
   #empty-state.show{ display:flex; }
@@ -116,7 +120,7 @@
   @keyframes bob{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
   .empty-text{ font-size:17px; letter-spacing:2px; }
 
-  .rank-row{ display:flex; align-items:center; gap:16px; padding:12px 20px;
+  .rank-row{ display:flex; align-items:center; gap:16px; padding:12px 20px; flex:none;
     border-radius:14px; background:rgba(255,255,255,.055);
     border:1px solid rgba(255,255,255,.08);
     animation:in .4s ease both; }
