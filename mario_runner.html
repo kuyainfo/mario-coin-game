@@ -40,6 +40,13 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 #start-screen p, #gameover-screen p {
   font-size: 12.5px; color: #fff; text-align: center; line-height: 1.9;
 }
+#name-input {
+  font-family: 'Courier New', Courier, monospace; font-size: 16px;
+  text-align: center; padding: 12px 16px; width: 220px; max-width: 80%;
+  border-radius: 6px; border: 3px solid #FFD700; background: #fff;
+  color: #333; outline: none; letter-spacing: 0.05em;
+}
+#name-input::placeholder { color: #bbb; }
 .btn {
   background: #E52222; color: #fff; border: none;
   font-size: 14px; padding: 14px 32px; border-radius: 6px; cursor: pointer;
@@ -52,7 +59,11 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 #result-box { display:flex; flex-direction:column; gap:6px; align-items:center; margin: 4px 0 8px; }
 #result-box .row { font-size: 13px; color:#fff; }
 #result-box .row b { color:#FFD700; font-size: 16px; }
+#player-tag { font-size: 13px; color:#FFD700; font-weight:bold; letter-spacing:0.05em; }
 #final-score { font-size: 30px; color:#FFD700; font-weight:bold; margin-top:4px; }
+#upload-status { font-size: 11px; color:#9fe0ff; min-height:14px; letter-spacing:0.04em; }
+#upload-status.ok { color:#7dff8a; }
+#upload-status.err { color:#ff8a8a; }
 </style>
 </head>
 <body>
@@ -68,16 +79,19 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   <div id="start-screen">
     <h1>🍄 MARIO<br>RUNNER</h1>
     <p>點一下：跳躍<br>滯空中再點一下：二段跳（更高）<br><br>吃金幣加分・撞水管即結束<br>存活越久分數越高！</p>
+    <input id="name-input" type="text" placeholder="輸入你的名字" maxlength="8" autocomplete="off">
     <button class="btn" id="start-btn">▶ 開始遊戲</button>
   </div>
 
   <div id="gameover-screen" style="display:none">
     <h1>GAME<br>OVER</h1>
+    <div id="player-tag"></div>
     <div id="result-box">
       <div class="row">存活時間：<b id="r-time">0.0</b> 秒</div>
       <div class="row">金幣數量：<b id="r-coin">0</b> 枚</div>
     </div>
     <div id="final-score">0</div>
+    <div id="upload-status"></div>
     <button class="btn" id="restart-btn">↺ 再玩一次</button>
   </div>
 </div>
@@ -95,6 +109,11 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   var rTime = document.getElementById('r-time');
   var rCoin = document.getElementById('r-coin');
   var finalScore = document.getElementById('final-score');
+  var nameInput = document.getElementById('name-input');
+  var playerTag = document.getElementById('player-tag');
+  var uploadStatus = document.getElementById('upload-status');
+
+  var playerName = ''; // 目前玩家名字（restart 視為同一人再挑戰，保留不清空）
 
   // ── 邏輯座標系：固定寬度，高度依容器實際比例動態換算，避免右側破圖 ──
   var W = 390;
@@ -131,7 +150,7 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   var JUMP1_VY = 510;        // 第一跳起跳初速（與重力同步調整，落地時間加快但高度不變）
   var SECOND_JUMP_MARGIN = 1.25; // 二段跳目標高度餘裕（略放寬，避免剛好卡在水管邊緣）
 
-  var SPEED1 = 280, SPEED2 = 380, SPEED3 = 480; // 整體提速，移動更滑順
+  var SPEED1 = 280, SPEED2 = 330, SPEED3 = 430; // 二段/三段速各降50，降低難度、避免太快
   var RAMP = 3; // 漸變秒數
 
   var COIN_SCORE = 3;
@@ -155,8 +174,8 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   ];
 
   function currentSpeed(tt){
-    if (tt < 27) return SPEED1;
-    if (tt < 30) return SPEED1 + (SPEED2 - SPEED1) * ((tt - 27) / RAMP);
+    if (tt < 30) return SPEED1;
+    if (tt < 33) return SPEED1 + (SPEED2 - SPEED1) * ((tt - 30) / RAMP);
     if (tt < 42) return SPEED2;
     if (tt < 45) return SPEED2 + (SPEED3 - SPEED2) * ((tt - 42) / RAMP);
     return SPEED3;
@@ -290,7 +309,12 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
     rTime.textContent = t.toFixed(1);
     rCoin.textContent = coinCount;
     finalScore.textContent = total;
+    playerTag.textContent = '玩家：' + playerName;
     goScreen.style.display = 'flex';
+    // 上傳分數（同名保留最高分由上傳端把關）；Firebase 尚未設定時安全略過
+    if (typeof window.uploadScore === 'function'){
+      window.uploadScore(playerName, total);
+    }
   }
 
   function updateHud(tt, cc, sc){
@@ -306,9 +330,18 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
     btn.addEventListener('touchend', function(e){ e.preventDefault(); callback(); }, { passive: false });
     btn.addEventListener('click', callback);
   }
-  
-  bindButton(startBtn, startGame);
-  bindButton(restartBtn, startGame);
+
+  // 開始鍵：先驗證名字，通過才記錄 playerName 並開始
+  function handleStart(){
+    var name = nameInput.value.trim();
+    if (!name){ nameInput.focus(); return; }
+    playerName = name;
+    startGame();
+  }
+  nameInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') handleStart(); });
+
+  bindButton(startBtn, handleStart);
+  bindButton(restartBtn, startGame); // 再玩一次＝同一人再挑戰，保留 playerName、不退回輸入
 
   // ── 主迴圈 ──
   var last = null;
@@ -524,6 +557,59 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 
   requestAnimationFrame(loop);
 })();
+</script>
+
+<!-- ── Firebase 分數上傳（獨立 module，透過 window 橋接主遊戲）── -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+/* ============================================================
+   ▼▼▼ 貼上你的新 Firebase config（Mario 專案）▼▼▼
+   後台排行榜 mario_leaderboard.html 須使用同一組設定
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+const DB_PATH = "mario-scores";   // 後台排行榜路徑須一致
+/* ============================================================ */
+
+let db = null, dbReady = false;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+  dbReady = true;
+} catch (e) {
+  console.warn("Firebase 尚未設定，分數暫不上傳：", e);
+}
+
+// 同名保留最高分：先讀舊分，破紀錄才覆蓋
+window.uploadScore = async function(name, score){
+  const statusEl = document.getElementById('upload-status');
+  const setStatus = (txt, cls) => { if(statusEl){ statusEl.textContent = txt; statusEl.className = cls || ''; } };
+  if (!dbReady){ setStatus('（Firebase 未設定，分數暫不上傳）'); return; }
+  setStatus('上傳中…');
+  try {
+    const key = String(name).replace(/[.#$/\[\]]/g, '_');
+    const r = ref(db, DB_PATH + '/' + key);
+    const snap = await get(r);
+    const prev = snap.exists() ? (snap.val().score || 0) : 0;
+    if (score >= prev){
+      await set(r, { name, score, updatedAt: Date.now() });
+      setStatus('✓ 分數已上傳', 'ok');
+    } else {
+      setStatus('本局未破紀錄，保留最高分 ' + prev);
+    }
+  } catch (e) {
+    setStatus('上傳失敗，請檢查網路', 'err');
+  }
+};
 </script>
 </body>
 </html>
