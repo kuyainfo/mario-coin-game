@@ -88,7 +88,7 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   60%  { opacity: 1; }
   to   { transform: translateY(0) scaleY(1); opacity: 1; }
 }
-.flag-logo { width: 28px; height: 28px; }
+.flag-logo { width: 14px; height: 14px; }
 .flag-logo svg { width: 100%; height: 100%; display: block; }
 
 #player-tag { font-size: 13px; color:#FFD700; font-weight:bold; letter-spacing:0.05em; }
@@ -99,11 +99,30 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 #upload-status { font-size: 11px; color:#9fe0ff; min-height:14px; letter-spacing:0.04em; }
 #upload-status.ok { color:#7dff8a; }
 #upload-status.err { color:#ff8a8a; }
+
+/* ── 變速倒數提示（中間偏上、雲朵下方） ── */
+#countdown {
+  position: absolute; left: 50%; top: 22%; transform: translate(-50%, -50%);
+  font-family: 'Courier New', Courier, monospace; font-weight: bold;
+  color: #FFD700; text-shadow: 3px 3px 0 #8B4513, 0 0 12px rgba(0,0,0,0.5);
+  opacity: 0; pointer-events: none; z-index: 15; white-space: nowrap; text-align: center;
+}
+#countdown.num { font-size: 66px; }
+#countdown.txt { font-size: 34px; letter-spacing: 4px; }
+#countdown.show { animation: cd 0.9s ease both; }
+@keyframes cd {
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.6); }
+  25%  { opacity: 1; transform: translate(-50%,-50%) scale(1.08); }
+  70%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1); }
+}
 </style>
 </head>
 <body>
 <div id="game-wrap">
   <canvas id="cv"></canvas>
+
+  <div id="countdown"></div>
 
   <div id="hud">
     <div>時間 <span class="val" id="time-val">0.0</span>s</div>
@@ -184,6 +203,7 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
   var playerTag = document.getElementById('player-tag');
   var uploadStatus = document.getElementById('upload-status');
   var endTitleH = document.getElementById('end-title-h');
+  var countdownEl = document.getElementById('countdown');
 
   var flagLogoEl = document.getElementById('flag-logo');
   if (flagLogoEl) flagLogoEl.innerHTML = CLIENT_LOGO_SVG;
@@ -252,6 +272,12 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
   var bigCoin = null, bigCoinCooldown = 12 + Math.random() * 6;
   var star = null,   starCooldown   = 4  + Math.random() * 4;
   var invincibleTimer = 0;
+  // 變速倒數提示：切換前 4 秒起「即將加速」→ 3 → 2 → 1（落在變速點 30、42）
+  var SPEED_CUES = [
+    { at: 26, text: '即將加速' }, { at: 27, text: '3' }, { at: 28, text: '2' }, { at: 29, text: '1' },
+    { at: 38, text: '即將加速' }, { at: 39, text: '3' }, { at: 40, text: '2' }, { at: 41, text: '1' }
+  ];
+  var cueIdx = 0;
   var clouds = [
     { x: 60, y: 70, r: 14 }, { x: 180, y: 100, r: 16 }, { x: 300, y: 60, r: 13 }, { x: 420, y: 90, r: 15 }
   ];
@@ -390,6 +416,7 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
     bigCoinCooldown = 12 + Math.random() * 6;
     starCooldown = 4 + Math.random() * 4;
     flag = null; finishPhase = null;
+    cueIdx = 0; countdownEl.classList.remove('show');
     startScreen.style.display = 'none';
     goScreen.style.display = 'none';
     updateHud(0, 0, 0);
@@ -471,6 +498,17 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
     scoreVal.textContent = sc;
   }
 
+  // 顯示變速倒數提示（一次一個，先「即將加速」淡出，再依序 3/2/1）
+  function showCountdown(text){
+    countdownEl.textContent = text;
+    countdownEl.classList.remove('show');
+    var isNum = (text.length === 1);
+    countdownEl.classList.toggle('num', isNum);
+    countdownEl.classList.toggle('txt', !isNum);
+    void countdownEl.offsetWidth;
+    countdownEl.classList.add('show');
+  }
+
   var startBtn = document.getElementById('start-btn');
   var restartBtn = document.getElementById('restart-btn');
   function bindButton(btn, callback){
@@ -499,6 +537,7 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
 
     if (state === 'playing'){
       t += dt;
+      while (cueIdx < SPEED_CUES.length && t >= SPEED_CUES[cueIdx].at){ showCountdown(SPEED_CUES[cueIdx].text); cueIdx++; }
       if (t >= END_TIME){ t = END_TIME; startFinish(); }
     }
 
