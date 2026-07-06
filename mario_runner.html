@@ -31,13 +31,14 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 #start-screen, #gameover-screen {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: rgba(0,0,40,0.88); z-index: 20; gap: 14px; padding: 24px;
+  background: rgba(0,0,40,0.88); z-index: 20; gap: 12px; padding: 20px;
 }
-#start-screen h1, #gameover-screen h1 {
+#gameover-screen { overflow-y: auto; justify-content: flex-start; padding-top: 30px; }
+#start-screen h1 {
   font-size: 22px; color: #FFD700; text-align: center; line-height: 1.5;
   text-shadow: 3px 3px 0 #8B4513; font-weight: bold;
 }
-#start-screen p, #gameover-screen p {
+#start-screen p {
   font-size: 12.5px; color: #fff; text-align: center; line-height: 1.9;
 }
 #name-input {
@@ -56,11 +57,45 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   margin-top: 4px;
 }
 .btn:active { transform: scale(0.95); }
-#result-box { display:flex; flex-direction:column; gap:6px; align-items:center; margin: 4px 0 8px; }
+#end-title-h {
+  font-size: 22px; color: #FFD700; text-align: center; line-height: 1.4;
+  text-shadow: 3px 3px 0 #8B4513; font-weight: bold;
+}
+
+/* ── 城堡升旗結算視覺 ── */
+.end-castle { position: relative; width: 200px; height: 210px; margin: 2px auto; flex: none; }
+.castle-svg { position: absolute; left: 0; bottom: 0; width: 200px; }
+.end-pole {
+  position: absolute; left: 97px; bottom: 100px; width: 5px; height: 86px;
+  background: linear-gradient(#f2f2f2, #9a9a9a); border-radius: 2px 2px 0 0; z-index: 1;
+}
+.end-pole::before {
+  content: ''; position: absolute; left: 50%; top: -6px; transform: translateX(-50%);
+  width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff2a0, #ffd700 60%, #c99700);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.end-flag {
+  position: absolute; left: 101px; bottom: 150px; width: 54px; height: 34px;
+  background: #E52222; border: 2px solid #fff; border-left: none;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.25); z-index: 2;
+  transform-origin: left center;
+  animation: flagRise 1s cubic-bezier(.2,.8,.3,1) .25s both;
+}
+@keyframes flagRise {
+  from { transform: translateY(34px) scaleY(.15); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { transform: translateY(0) scaleY(1); opacity: 1; }
+}
+.flag-logo { width: 28px; height: 28px; }
+.flag-logo svg { width: 100%; height: 100%; display: block; }
+
+#player-tag { font-size: 13px; color:#FFD700; font-weight:bold; letter-spacing:0.05em; }
+#result-box { display:flex; flex-direction:column; gap:6px; align-items:center; margin: 2px 0 4px; }
 #result-box .row { font-size: 13px; color:#fff; }
 #result-box .row b { color:#FFD700; font-size: 16px; }
-#player-tag { font-size: 13px; color:#FFD700; font-weight:bold; letter-spacing:0.05em; }
-#final-score { font-size: 30px; color:#FFD700; font-weight:bold; margin-top:4px; }
+#final-score { font-size: 30px; color:#FFD700; font-weight:bold; margin-top:2px; }
 #upload-status { font-size: 11px; color:#9fe0ff; min-height:14px; letter-spacing:0.04em; }
 #upload-status.ok { color:#7dff8a; }
 #upload-status.err { color:#ff8a8a; }
@@ -78,13 +113,38 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 
   <div id="start-screen">
     <h1>🍄 MARIO<br>RUNNER</h1>
-    <p>點一下：跳躍<br>滯空中再點一下：二段跳（更高）<br><br>吃金幣加分・撞水管即結束<br>存活越久分數越高！</p>
+    <p>點一下：跳躍<br>滯空中再點一下：二段跳（更高）<br><br>吃金幣加分・撞水管即結束<br>撐到終點就過關！</p>
     <input id="name-input" type="text" placeholder="輸入你的名字" maxlength="8" autocomplete="off">
     <button class="btn" id="start-btn">▶ 開始遊戲</button>
   </div>
 
   <div id="gameover-screen" style="display:none">
-    <h1>GAME<br>OVER</h1>
+    <div id="end-title-h">GAME OVER</div>
+    <div class="end-castle">
+      <svg class="castle-svg" viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
+        <!-- 下層側塔 -->
+        <rect x="6" y="64" width="28" height="66" fill="#a8501a"/>
+        <rect x="166" y="64" width="28" height="66" fill="#a8501a"/>
+        <rect x="4" y="58" width="9" height="8" fill="#a8501a"/><rect x="16" y="58" width="9" height="8" fill="#a8501a"/><rect x="28" y="58" width="6" height="8" fill="#a8501a"/>
+        <rect x="166" y="58" width="9" height="8" fill="#a8501a"/><rect x="178" y="58" width="9" height="8" fill="#a8501a"/><rect x="190" y="58" width="4" height="8" fill="#a8501a"/>
+        <!-- 下層主體 -->
+        <rect x="30" y="70" width="140" height="60" fill="#c8621e"/>
+        <rect x="30" y="62" width="16" height="10" fill="#c8621e"/><rect x="54" y="62" width="16" height="10" fill="#c8621e"/><rect x="78" y="62" width="16" height="10" fill="#c8621e"/><rect x="102" y="62" width="16" height="10" fill="#c8621e"/><rect x="126" y="62" width="16" height="10" fill="#c8621e"/><rect x="150" y="62" width="16" height="10" fill="#c8621e"/>
+        <g stroke="rgba(0,0,0,0.12)" stroke-width="1.4">
+          <line x1="30" y1="86" x2="170" y2="86"/><line x1="30" y1="102" x2="170" y2="102"/><line x1="30" y1="118" x2="170" y2="118"/>
+        </g>
+        <!-- 下層門與窗 -->
+        <path d="M84 130 v-24 a16 16 0 0 1 32 0 v24 z" fill="#2a1708"/>
+        <circle cx="58" cy="88" r="6" fill="#2a1708"/><circle cx="142" cy="88" r="6" fill="#2a1708"/>
+        <!-- 上層塔樓（窄，置中；旗桿由此插入） -->
+        <rect x="72" y="26" width="56" height="46" fill="#b85a1a"/>
+        <rect x="72" y="18" width="13" height="10" fill="#b85a1a"/><rect x="93" y="18" width="14" height="10" fill="#b85a1a"/><rect x="115" y="18" width="13" height="10" fill="#b85a1a"/>
+        <line x1="72" y1="50" x2="128" y2="50" stroke="rgba(0,0,0,0.12)" stroke-width="1.4"/>
+        <rect x="94" y="40" width="12" height="18" fill="#2a1708"/>
+      </svg>
+      <div class="end-pole"></div>
+      <div class="end-flag" id="end-flag"><div class="flag-logo" id="flag-logo"></div></div>
+    </div>
     <div id="player-tag"></div>
     <div id="result-box">
       <div class="row">存活時間：<b id="r-time">0.0</b> 秒</div>
@@ -97,6 +157,17 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 </div>
 
 <script>
+/* ============================================================
+   ▼▼▼ 客戶 LOGO（結算旗面）— 換客戶時只改這一段 ▼▼▼
+   貼上新的 <svg>…</svg> 即可，會自動填入旗面
+   ============================================================ */
+var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 800 800">
+  <defs><style>.st0{fill:#024ad8;}.st1{fill:#fff;}</style></defs>
+  <path class="st1" d="M400,0C179.07,0,0,179.09,0,400s179.07,400,400,400,400-179.08,400-400S620.93,0,400,0Z"/>
+  <path class="st0" d="M400,770.47c-3.69,0-7.36-.07-11.01-.17l75.71-208.08h104.19c18.28,0,38.37-14.06,44.61-31.23l82.14-225.63c13.43-36.94-7.72-67.16-47.03-67.16h-144.55l-121.28,333.29h-.05l-68.76,188.92C150.86,721.62,29.53,575,29.53,400S143.96,86.85,299.97,43.2l-70.96,194.99h-.02l-117.95,324.01h78.52l100.3-275.33h59l-100.3,275.33h78.48l93.48-256.86c13.45-36.94-7.72-67.16-46.98-67.16h-66L383.35,29.92c5.52-.24,11.06-.39,16.65-.39,204.6,0,370.47,165.87,370.47,370.47s-165.87,370.47-370.47,370.47ZM624.15,286.7h-58.98l-82.62,226.67h59l82.62-226.67h-.02Z"/>
+</svg>`;
+/* ============================================================ */
+
 (function(){
   var wrap = document.getElementById('game-wrap');
   var cv = document.getElementById('cv');
@@ -112,66 +183,81 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   var nameInput = document.getElementById('name-input');
   var playerTag = document.getElementById('player-tag');
   var uploadStatus = document.getElementById('upload-status');
+  var endTitleH = document.getElementById('end-title-h');
 
-  var playerName = ''; // 目前玩家名字（restart 視為同一人再挑戰，保留不清空）
+  var flagLogoEl = document.getElementById('flag-logo');
+  if (flagLogoEl) flagLogoEl.innerHTML = CLIENT_LOGO_SVG;
 
-  // ── 邏輯座標系：固定寬度，高度依容器實際比例動態換算，避免右側破圖 ──
+  var playerName = '';
+
   var W = 390;
   var GROUND_H = 80;
   var MARIO_X = 62, MARIO_W = 44, MARIO_H = 54;
-  var UNIT = MARIO_H; // 以馬力歐身高作為水管／金幣高度單位
+  var UNIT = MARIO_H;
   var H, GROUND_Y, BASE_Y;
   var DPR = Math.min(window.devicePixelRatio || 1, 2);
 
-  var mario = { y: 0, vy: 0, jumping: false, onPipe: null, jumpsUsed: 0, legFrame: 0, legTimer: 0 };
+  var mario = { x: MARIO_X, y: 0, vy: 0, jumping: false, onPipe: null, jumpsUsed: 0, legFrame: 0, legTimer: 0 };
 
   function resize(){
     var rect = wrap.getBoundingClientRect();
-    var actualWidth = rect.width || W; // Line 容器初始寬度可能為 0，改用預設
+    var actualWidth = rect.width || W;
     var actualHeight = rect.height || window.innerHeight;
-    if (actualWidth < 100) actualWidth = W; // 安全下限：太窄改預設
-    if (actualHeight < 200) actualHeight = 844; // 安全下限：太矮改預設
-    
+    if (actualWidth < 100) actualWidth = W;
+    if (actualHeight < 200) actualHeight = 844;
     var scale = actualWidth / W;
     H = actualHeight / scale;
     GROUND_Y = H - GROUND_H;
     BASE_Y = GROUND_Y - MARIO_H;
-    if (!mario.jumping && !mario.onPipe) mario.y = BASE_Y;
-    
+    if (!mario.jumping && !mario.onPipe && state !== 'finish') mario.y = BASE_Y;
     cv.width = Math.max(actualWidth * DPR, 390 * DPR);
     cv.height = Math.max(actualHeight * DPR, 600 * DPR);
     ctx.setTransform(DPR * scale, 0, 0, DPR * scale, 0, 0);
   }
   window.addEventListener('resize', resize);
-  resize();
 
-  // ── 常數 ──
-  var GRAVITY = 1730;        // px/s^2（提高重力讓跳躍更俐落，總滯空時間縮短約10%，高度維持不變）
-  var JUMP1_VY = 510;        // 第一跳起跳初速（與重力同步調整，落地時間加快但高度不變）
-  var SECOND_JUMP_MARGIN = 1.25; // 二段跳目標高度餘裕（略放寬，避免剛好卡在水管邊緣）
+  var GRAVITY = 1730;
+  var JUMP1_VY = 510;
+  var SECOND_JUMP_MARGIN = 1.25;
 
-  var SPEED1 = 280, SPEED2 = 330, SPEED3 = 430; // 二段/三段速各降50，降低難度、避免太快
-  var RAMP = 3; // 漸變秒數
+  var SPEED1 = 280, SPEED2 = 330, SPEED3 = 430;
+  var RAMP = 3;
 
   var COIN_SCORE = 3;
   var TIME_SCORE_PER_SEC = 7;
 
-  // 金幣三層高度：與馬力歐等高／1倍馬力歐高／2倍馬力歐高
+  // ★ 關卡總時長（秒）：到此秒數觸發終點旗幟演出。測試版請改為 10
+  var END_TIME = 60;
+
+  var BIG_COIN_SCORE = 30;
+  var BIG_COIN_R = 30;
+  var STAR_R = 15;
+  var STAR_INVINCIBLE = 4.0;
+
+  var FIN_SCROLL = 330, FIN_RUN = 200, FIN_SLIDE = 260;
+  var FLAG_POLE_TARGET = 250;
+
   var COIN_LEVEL_EQUAL = -(MARIO_H / 2);
   var COIN_LEVEL_1 = -(UNIT + 16);
   var COIN_LEVEL_2 = -(UNIT * 2 + 16);
 
-  // ── 狀態 ──
-  var state = 'start'; // start | playing | over
-  var t = 0;            // 遊戲經過秒數
+  var state = 'start';
+  var t = 0;
   var pipes = [];
   var coins = [];
   var coinCount = 0;
-  var pipeCooldown = 260; // 距離累積（px）到達才可再生新水管
-  var coinCooldown = 0.9; // 秒
+  var bonusScore = 0;
+  var pipeCooldown = 260;
+  var coinCooldown = 0.9;
+  var bigCoin = null, bigCoinCooldown = 12 + Math.random() * 6;
+  var star = null,   starCooldown   = 4  + Math.random() * 4;
+  var invincibleTimer = 0;
   var clouds = [
     { x: 60, y: 70, r: 14 }, { x: 180, y: 100, r: 16 }, { x: 300, y: 60, r: 13 }, { x: 420, y: 90, r: 15 }
   ];
+
+  var flag = null, flagBannerY = 0, finishPhase = null;
+  function flagTopY(){ return GROUND_Y - 200; }
 
   function currentSpeed(tt){
     if (tt < 30) return SPEED1;
@@ -181,53 +267,52 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
     return SPEED3;
   }
 
-  // ── 產生水管：依速度反推安全間距，並避開正在畫面上的金幣串生成點 ──
+  resize();
+
   function spawnPipe(){
     var w = 40;
     var spawnX = W + 30;
-    var margin = 190; // 涵蓋最寬金幣串跨距（最寬約136px）＋緩衝，避免串頭尾被水管夾住
+    var margin = 190;
     for (var ci = 0; ci < coins.length; ci++){
-      if (coins[ci].x > spawnX - margin && coins[ci].x < spawnX + w + margin){
-        pipeCooldown = 45; // 生成點被金幣串佔用，短延遲後重試
-        return;
-      }
+      if (coins[ci].x > spawnX - margin && coins[ci].x < spawnX + w + margin){ pipeCooldown = 45; return; }
     }
     var tall = Math.random() < 0.5;
-    var h = tall ? UNIT * 2 : UNIT; // 1倍馬力歐高／2倍馬力歐高
+    var h = tall ? UNIT * 2 : UNIT;
     var spd = currentSpeed(t);
     var target = h * 1.15;
-    var veff = Math.sqrt(2 * GRAVITY * target); // 反推清該高度所需的等效起跳初速
-    var flightTime = (2 * veff) / GRAVITY;      // 對稱拋物線：上升+下降總時間
-    var buffer = 0.4; // 反應＋落地緩衝
+    var veff = Math.sqrt(2 * GRAVITY * target);
+    var flightTime = (2 * veff) / GRAVITY;
+    var buffer = 0.4;
     var minGap = spd * (flightTime + buffer);
     pipes.push({ x: spawnX, y: GROUND_Y - h, w: w, h: h, cleared: false });
     pipeCooldown = minGap + 20 + Math.random() * 70;
   }
 
-  // ── 金幣串型：低平／弧線／階梯，並避免與水管視覺重疊 ──
   function findConflictPipeTop(x0, x1){
     var top = null;
     for (var i = 0; i < pipes.length; i++){
       var p = pipes[i];
-      if (p.x + p.w > x0 && p.x < x1){
-        if (top === null || p.y < top) top = p.y; // 取最高（y 最小）的水管
-      }
+      if (p.x + p.w > x0 && p.x < x1){ if (top === null || p.y < top) top = p.y; }
     }
     return top;
+  }
+
+  function areaBlocked(x0, x1){
+    for (var i = 0; i < pipes.length; i++){ if (pipes[i].x < x1 && pipes[i].x + pipes[i].w > x0) return true; }
+    for (var c = 0; c < coins.length; c++){ if (coins[c].x > x0 && coins[c].x < x1) return true; }
+    if (bigCoin && bigCoin.x > x0 && bigCoin.x < x1) return true;
+    if (star && star.x > x0 && star.x < x1) return true;
+    return false;
   }
 
   function spawnCoins(){
     var startX = W + 30;
     var r = Math.random();
-    var pattern, pts = [];
+    var pts = [];
     if (r < 0.45){
-      // 低平串：與馬力歐等高，跑步順路吃到不需跳躍
-      pattern = 'flat';
       var n = 3 + Math.floor(Math.random() * 3);
       for (var i = 0; i < n; i++) pts.push({ dx: i * 34, dy: COIN_LEVEL_EQUAL });
     } else if (r < 0.8){
-      // 弧線串：對應一次長按跳躍的拋物線，峰值落在2倍馬力歐高
-      pattern = 'arc';
       var arcN = 6;
       for (var j = 0; j < arcN; j++){
         var f = j / (arcN - 1);
@@ -235,24 +320,19 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
         pts.push({ dx: j * 26, dy: COIN_LEVEL_EQUAL + (COIN_LEVEL_2 - COIN_LEVEL_EQUAL) * arcH });
       }
     } else {
-      // 階梯串：三步分別對應等高／1倍／2倍馬力歐高，需連續變化跳躍節奏
-      pattern = 'stair';
       var stairLevels = [COIN_LEVEL_EQUAL, COIN_LEVEL_1, COIN_LEVEL_2, COIN_LEVEL_1];
-      for (var k = 0; k < stairLevels.length; k++){
-        pts.push({ dx: k * 40, dy: stairLevels[k] });
-      }
+      for (var k = 0; k < stairLevels.length; k++){ pts.push({ dx: k * 40, dy: stairLevels[k] }); }
     }
 
-    // 檢查完整區塊是否與任一水管視覺重疊，若重疊則整組精準上移到該水管上方
     var minDx = pts[0].dx, maxDx = pts[pts.length - 1].dx;
-    var maxDy = Math.max.apply(null, pts.map(function(p){ return p.dy; })); // 最接近地面的點
+    var maxDy = Math.max.apply(null, pts.map(function(p){ return p.dy; }));
     var x0 = startX + minDx - 8, x1 = startX + maxDx + 20;
     var conflictTop = findConflictPipeTop(x0, x1);
     if (conflictTop !== null){
       var margin = 14;
       var lowestCoinY = GROUND_Y + maxDy;
       if (lowestCoinY > conflictTop - margin){
-        var shift = (conflictTop - margin) - lowestCoinY; // 負值＝往上移
+        var shift = (conflictTop - margin) - lowestCoinY;
         pts = pts.map(function(p){ return { dx: p.dx, dy: p.dy + shift }; });
       }
     }
@@ -263,58 +343,121 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
     coinCooldown = 0.7 + Math.random() * 0.9;
   }
 
-  // ── 輸入：單擊＝跳躍，滯空中再點一次＝二段跳，站在水管上也可再次起跳 ──
+  function trySpawnBigCoin(){
+    var spawnX = W + 40;
+    var half = BIG_COIN_R + 24;
+    if (areaBlocked(spawnX - half, spawnX + half)){ bigCoinCooldown = 0.5; return; }
+    bigCoin = { x: spawnX, y: GROUND_Y - 76, r: BIG_COIN_R, taken: false };
+    bigCoinCooldown = 12 + Math.random() * 6;
+  }
+
+  function trySpawnStar(){
+    var spawnX = W + 30;
+    var half = STAR_R + 20;
+    if (areaBlocked(spawnX - half, spawnX + half)){ starCooldown = 0.5; return; }
+    var levels = [COIN_LEVEL_EQUAL, COIN_LEVEL_1, COIN_LEVEL_2];
+    var lv = levels[Math.floor(Math.random() * levels.length)];
+    star = { x: spawnX, y: GROUND_Y + lv, r: STAR_R };
+    starCooldown = 14 + Math.random() * 8;
+  }
+
   function secondJumpVy(){
-    var currentHeight = BASE_Y - mario.y; // 目前高於地面的距離
-    var target = UNIT * 2 * SECOND_JUMP_MARGIN; // 目標：清2格水管＋餘裕
+    var currentHeight = BASE_Y - mario.y;
+    var target = UNIT * 2 * SECOND_JUMP_MARGIN;
     var remaining = target - currentHeight;
-    if (remaining < 20) remaining = 20; // 保底一點手感，避免接近頂點時幾乎沒反應
+    if (remaining < 20) remaining = 20;
     return -Math.sqrt(2 * GRAVITY * remaining);
   }
 
   function doJump(){
     if (state !== 'playing') return;
     if (mario.onPipe){
-      mario.onPipe = null;
-      mario.jumping = true; mario.vy = -JUMP1_VY; mario.jumpsUsed = 1;
-      return;
+      mario.onPipe = null; mario.jumping = true; mario.vy = -JUMP1_VY; mario.jumpsUsed = 1; return;
     }
-    if (!mario.jumping){
-      mario.jumping = true; mario.vy = -JUMP1_VY; mario.jumpsUsed = 1;
-    } else if (mario.jumpsUsed < 2){
-      mario.vy = secondJumpVy(); // 依目前高度反推，不論何時按下都穩定收斂到同一安全高度
-      mario.jumpsUsed = 2;
-    }
+    if (!mario.jumping){ mario.jumping = true; mario.vy = -JUMP1_VY; mario.jumpsUsed = 1; }
+    else if (mario.jumpsUsed < 2){ mario.vy = secondJumpVy(); mario.jumpsUsed = 2; }
   }
 
   wrap.addEventListener('touchstart', function(e){ e.preventDefault(); doJump(); }, { passive: false });
   wrap.addEventListener('mousedown', function(){ doJump(); });
 
-  // ── 遊戲流程 ──
   function startGame(){
     state = 'playing'; t = 0;
-    mario.y = BASE_Y; mario.vy = 0; mario.jumping = false; mario.onPipe = null; mario.jumpsUsed = 0;
-    pipes = []; coins = []; coinCount = 0;
+    mario.x = MARIO_X; mario.y = BASE_Y; mario.vy = 0; mario.jumping = false; mario.onPipe = null; mario.jumpsUsed = 0;
+    pipes = []; coins = []; coinCount = 0; bonusScore = 0;
+    bigCoin = null; star = null; invincibleTimer = 0;
     pipeCooldown = 300; coinCooldown = 0.6;
+    bigCoinCooldown = 12 + Math.random() * 6;
+    starCooldown = 4 + Math.random() * 4;
+    flag = null; finishPhase = null;
     startScreen.style.display = 'none';
     goScreen.style.display = 'none';
     updateHud(0, 0, 0);
   }
 
-  function endGame(){
+  function startFinish(){
+    state = 'finish';
+    finishPhase = 'approach';
+    pipes = []; coins = []; bigCoin = null; star = null; invincibleTimer = 0;
+    mario.onPipe = null; mario.jumping = false; mario.vy = 0; mario.y = BASE_Y; mario.x = MARIO_X;
+    flag = { poleX: W + 130 };
+    flagBannerY = flagTopY() + 6;
+    updateHud(END_TIME, coinCount, Math.floor(END_TIME * TIME_SCORE_PER_SEC) + coinCount * COIN_SCORE + bonusScore);
+  }
+
+  function updateFinish(dt){
+    var ftY = flagTopY();
+    if (finishPhase === 'approach'){
+      groundScroll = (groundScroll + FIN_SCROLL * dt) % 40;
+      for (var cl = 0; cl < clouds.length; cl++){ clouds[cl].x -= FIN_SCROLL * 0.25 * dt; }
+      flag.poleX -= FIN_SCROLL * dt;
+      mario.legTimer += dt; if (mario.legTimer > 0.11){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
+      if (flag.poleX <= FLAG_POLE_TARGET){ flag.poleX = FLAG_POLE_TARGET; finishPhase = 'run'; }
+    } else if (finishPhase === 'run'){
+      mario.x += FIN_RUN * dt;
+      mario.legTimer += dt; if (mario.legTimer > 0.09){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
+      // 起跳點：讓拋物線頂點大約落在桿頂
+      var vy0 = Math.sqrt(2 * GRAVITY * (BASE_Y - (ftY + 6)));
+      var takeoffDist = FIN_RUN * (vy0 / GRAVITY);
+      if (mario.x + MARIO_W >= flag.poleX - takeoffDist){
+        finishPhase = 'jump';
+        mario.jumping = true;
+        mario.jumpVy = -vy0; // 自行起跳（演出腳本，不受玩家跳躍高度限制）
+      }
+    } else if (finishPhase === 'jump'){
+      mario.x += FIN_RUN * dt;
+      mario.jumpVy += GRAVITY * dt;
+      mario.y += mario.jumpVy * dt;
+      if (mario.x + MARIO_W >= flag.poleX){ // 抵達桿身 → 抓住桿頂、轉下滑
+        mario.x = flag.poleX - MARIO_W + 6;
+        mario.y = ftY + 6;
+        flagBannerY = ftY + 6;
+        mario.jumping = false;
+        finishPhase = 'slide';
+      }
+    } else if (finishPhase === 'slide'){
+      mario.y += FIN_SLIDE * dt;
+      flagBannerY += FIN_SLIDE * dt;
+      if (mario.y >= BASE_Y){ mario.y = BASE_Y; finishPhase = 'walk'; }
+    } else if (finishPhase === 'walk'){
+      mario.x += FIN_RUN * dt;
+      mario.legTimer += dt; if (mario.legTimer > 0.09){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
+      if (mario.x > W + 24){ finishPhase = 'done'; endGame(true); }
+    }
+  }
+
+  function endGame(cleared){
     state = 'over';
-    var timeScore = Math.floor(t * TIME_SCORE_PER_SEC);
-    var coinScore = coinCount * COIN_SCORE;
-    var total = timeScore + coinScore;
+    var total = Math.floor(t * TIME_SCORE_PER_SEC) + coinCount * COIN_SCORE + bonusScore;
     rTime.textContent = t.toFixed(1);
     rCoin.textContent = coinCount;
     finalScore.textContent = total;
     playerTag.textContent = '玩家：' + playerName;
+    endTitleH.textContent = cleared ? '🏁 抵達終點！' : 'GAME OVER';
     goScreen.style.display = 'flex';
-    // 上傳分數（同名保留最高分由上傳端把關）；Firebase 尚未設定時安全略過
-    if (typeof window.uploadScore === 'function'){
-      window.uploadScore(playerName, total);
-    }
+    var ef = document.getElementById('end-flag');
+    if (ef){ ef.style.animation = 'none'; void ef.offsetWidth; ef.style.animation = ''; }
+    if (typeof window.uploadScore === 'function'){ window.uploadScore(playerName, total); }
   }
 
   function updateHud(tt, cc, sc){
@@ -325,13 +468,11 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 
   var startBtn = document.getElementById('start-btn');
   var restartBtn = document.getElementById('restart-btn');
-  
   function bindButton(btn, callback){
     btn.addEventListener('touchend', function(e){ e.preventDefault(); callback(); }, { passive: false });
     btn.addEventListener('click', callback);
   }
 
-  // 開始鍵：先驗證名字，通過才記錄 playerName 並開始
   function handleStart(){
     var name = nameInput.value.trim();
     if (!name){ nameInput.focus(); return; }
@@ -341,9 +482,8 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   nameInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') handleStart(); });
 
   bindButton(startBtn, handleStart);
-  bindButton(restartBtn, startGame); // 再玩一次＝同一人再挑戰，保留 playerName、不退回輸入
+  bindButton(restartBtn, startGame);
 
-  // ── 主迴圈 ──
   var last = null;
   var groundScroll = 0;
 
@@ -354,45 +494,36 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 
     if (state === 'playing'){
       t += dt;
+      if (t >= END_TIME){ t = END_TIME; startFinish(); }
+    }
+
+    if (state === 'playing'){
       var spd = currentSpeed(t);
       groundScroll = (groundScroll + spd * dt) % 40;
 
-      // 雲朵視差捲動（速度較地面慢，避免與地面重疊感）
       for (var cl = 0; cl < clouds.length; cl++){
         clouds[cl].x -= spd * 0.25 * dt;
-        if (clouds[cl].x < -50){
-          clouds[cl].x = W + 50 + Math.random() * 60;
-          clouds[cl].y = 50 + Math.random() * 90;
-        }
+        if (clouds[cl].x < -50){ clouds[cl].x = W + 50 + Math.random() * 60; clouds[cl].y = 50 + Math.random() * 90; }
       }
 
       var mx0 = MARIO_X, mx1 = MARIO_X + MARIO_W;
-      var prevFootY = mario.y + MARIO_H; // 本幀物理更新前的腳底高度
+      var prevFootY = mario.y + MARIO_H;
 
-      // 馬力歐物理：站在水管上 → 拋物線跳躍／墜落 → 一般跑步
       if (mario.onPipe){
         var op = mario.onPipe;
-        if (op.x + op.w <= mx0 || op.x >= mx1){
-          // 水管已完全從馬力歐腳下移出，前進過程中自然掉回路面
-          mario.onPipe = null;
-          mario.jumping = true; mario.vy = 0;
-        } else {
-          mario.y = op.y - MARIO_H; // 站穩在水管頂，隨水管一起前進
-          mario.legTimer += dt;
-          if (mario.legTimer > 0.11){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
+        if (op.x + op.w <= mx0 || op.x >= mx1){ mario.onPipe = null; mario.jumping = true; mario.vy = 0; }
+        else {
+          mario.y = op.y - MARIO_H;
+          mario.legTimer += dt; if (mario.legTimer > 0.11){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
         }
       } else if (mario.jumping){
         mario.vy += GRAVITY * dt;
         mario.y += mario.vy * dt;
-        if (mario.y >= BASE_Y){
-          mario.y = BASE_Y; mario.jumping = false; mario.vy = 0; mario.jumpsUsed = 0;
-        }
+        if (mario.y >= BASE_Y){ mario.y = BASE_Y; mario.jumping = false; mario.vy = 0; mario.jumpsUsed = 0; }
       } else {
-        mario.legTimer += dt;
-        if (mario.legTimer > 0.11){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
+        mario.legTimer += dt; if (mario.legTimer > 0.11){ mario.legTimer = 0; mario.legFrame = 1 - mario.legFrame; }
       }
 
-      // 水管
       pipeCooldown -= spd * dt;
       if (pipeCooldown <= 0) spawnPipe();
       for (var i = pipes.length - 1; i >= 0; i--){
@@ -400,7 +531,6 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
         if (pipes[i].x + pipes[i].w < -20) pipes.splice(i, 1);
       }
 
-      // 金幣
       coinCooldown -= dt;
       if (coinCooldown <= 0) spawnCoins();
       for (var j = coins.length - 1; j >= 0; j--){
@@ -408,48 +538,58 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
         if (coins[j].x < -30 || coins[j].taken) coins.splice(j, 1);
       }
 
+      bigCoinCooldown -= dt;
+      if (!bigCoin && bigCoinCooldown <= 0) trySpawnBigCoin();
+      if (bigCoin){ bigCoin.x -= spd * dt; if (bigCoin.x < -60) bigCoin = null; }
+
+      if (t >= 30) starCooldown -= dt;
+      if (!star && t >= 30 && starCooldown <= 0) trySpawnStar();
+      if (star){ star.x -= spd * dt; if (star.x < -40) star = null; }
+
+      if (invincibleTimer > 0){ invincibleTimer -= dt; if (invincibleTimer < 0) invincibleTimer = 0; }
+
       var my0 = mario.y, my1 = mario.y + MARIO_H;
 
-      // 平台判定：只有「上一幀腳底還在管頂之上、這一幀才下降穿越管頂」才算真正站上（避免瞬移／誤判）
       if (!mario.onPipe && mario.jumping && mario.vy > 0){
         for (var pl = 0; pl < pipes.length; pl++){
           var plp = pipes[pl];
           if (mx1 > plp.x && mx0 < plp.x + plp.w && prevFootY <= plp.y && my1 >= plp.y){
-            mario.y = plp.y - MARIO_H;
-            mario.vy = 0; mario.jumping = false; mario.jumpsUsed = 0;
-            mario.onPipe = plp; plp.cleared = true;
-            my0 = mario.y; my1 = mario.y + MARIO_H;
+            mario.y = plp.y - MARIO_H; mario.vy = 0; mario.jumping = false; mario.jumpsUsed = 0;
+            mario.onPipe = plp; plp.cleared = true; my0 = mario.y; my1 = mario.y + MARIO_H;
             break;
           }
         }
       }
 
-      // 碰撞：水管（僅檢查面對馬力歐的前緣；曾經飛越／已站上過的水管不再判死）
-      var PIPE_FACE = 10; // 前緣碰撞判定厚度
+      var PIPE_FACE = 10;
       for (var p = 0; p < pipes.length; p++){
         var pp = pipes[p];
         if (mx1 > pp.x && mx0 < pp.x + PIPE_FACE){
-          if (my1 <= pp.y){
-            pp.cleared = true; // 這一刻馬力歐高於水管頂，記錄已飛越
-          } else if (!pp.cleared){
-            endGame();
-            break;
-          }
+          if (my1 <= pp.y){ pp.cleared = true; }
+          else if (!pp.cleared && invincibleTimer <= 0){ endGame(false); break; }
         }
       }
-      // 碰撞：金幣
+
       if (state === 'playing'){
         for (var c = 0; c < coins.length; c++){
           var co = coins[c];
           var cx0 = co.x - co.r, cx1 = co.x + co.r, cy0 = co.y - co.r, cy1 = co.y + co.r;
-          if (!co.taken && mx1 > cx0 && mx0 < cx1 && my1 > cy0 && my0 < cy1){
-            co.taken = true; coinCount++;
-          }
+          if (!co.taken && mx1 > cx0 && mx0 < cx1 && my1 > cy0 && my0 < cy1){ co.taken = true; coinCount++; }
+        }
+        if (bigCoin){
+          var bx0 = bigCoin.x - bigCoin.r, bx1 = bigCoin.x + bigCoin.r, by0 = bigCoin.y - bigCoin.r, by1 = bigCoin.y + bigCoin.r;
+          if (mx1 > bx0 && mx0 < bx1 && my1 > by0 && my0 < by1){ bonusScore += BIG_COIN_SCORE; bigCoin = null; }
+        }
+        if (star){
+          var sx0 = star.x - star.r, sx1 = star.x + star.r, sy0 = star.y - star.r, sy1 = star.y + star.r;
+          if (mx1 > sx0 && mx0 < sx1 && my1 > sy0 && my0 < sy1){ invincibleTimer = STAR_INVINCIBLE; star = null; }
         }
       }
 
-      var liveScore = Math.floor(t * TIME_SCORE_PER_SEC) + coinCount * COIN_SCORE;
+      var liveScore = Math.floor(t * TIME_SCORE_PER_SEC) + coinCount * COIN_SCORE + bonusScore;
       updateHud(t, coinCount, liveScore);
+    } else if (state === 'finish'){
+      updateFinish(dt);
     }
 
     render();
@@ -459,34 +599,65 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   function render(){
     ctx.clearRect(0, 0, W, H);
 
-    // 天空
     ctx.fillStyle = '#5C94FC';
     ctx.fillRect(0, 0, W, H);
 
-    // 雲（依 clouds 陣列即時捲動）
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    for (var ci = 0; ci < clouds.length; ci++){
-      drawCloud(clouds[ci].x, clouds[ci].y);
-    }
+    for (var ci = 0; ci < clouds.length; ci++){ drawCloud(clouds[ci].x, clouds[ci].y); }
 
-    // 地面
     ctx.fillStyle = '#56A832';
     ctx.fillRect(0, GROUND_Y, W, 18);
     ctx.fillStyle = '#6B3A2A';
     ctx.fillRect(0, GROUND_Y + 18, W, GROUND_H - 18);
     ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    for (var g = -1; g < W / 40 + 1; g++){
-      ctx.fillRect(g * 40 - groundScroll, GROUND_Y + 18, 2, GROUND_H - 18);
+    for (var g = -1; g < W / 40 + 1; g++){ ctx.fillRect(g * 40 - groundScroll, GROUND_Y + 18, 2, GROUND_H - 18); }
+
+    if (state === 'finish'){
+      drawFlagScene();
+    } else {
+      pipes.forEach(function(p){ drawPipe(p.x, p.y, p.w, p.h); });
+      coins.forEach(function(c){ if (!c.taken) drawCoin(c.x, c.y, c.r); });
+      if (bigCoin) drawBigCoin(bigCoin.x, bigCoin.y, bigCoin.r);
+      if (star) drawStar(star.x, star.y, star.r);
     }
 
-    // 水管
-    pipes.forEach(function(p){ drawPipe(p.x, p.y, p.w, p.h); });
+    var showMario = true;
+    if (invincibleTimer > 0) showMario = (Math.floor(performance.now() / 90) % 2 === 0);
+    if (showMario) drawMario(mario.x, mario.y, mario.jumping, mario.legFrame);
+  }
 
-    // 金幣
-    coins.forEach(function(c){ if (!c.taken) drawCoin(c.x, c.y, c.r); });
+  function drawFlagScene(){
+    var ftY = flagTopY();
+    var px = flag.poleX;
+    drawCanvasCastle(px + 96);
+    ctx.fillStyle = '#2E9E2E';
+    ctx.fillRect(px - 2, ftY, 4, GROUND_Y - ftY);
+    ctx.beginPath(); ctx.arc(px, ftY - 5, 6, 0, Math.PI * 2); ctx.fillStyle = '#1F7A1F'; ctx.fill();
+    ctx.fillStyle = '#f5f5f5';
+    ctx.beginPath();
+    ctx.moveTo(px, flagBannerY);
+    ctx.lineTo(px - 32, flagBannerY + 11);
+    ctx.lineTo(px, flagBannerY + 22);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#2E9E2E'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
 
-    // 馬力歐
-    drawMario(MARIO_X, mario.y, mario.jumping, mario.legFrame);
+  function drawCanvasCastle(cx){
+    var cw = 96, ch = 72;
+    var x0 = cx - cw / 2, y0 = GROUND_Y - ch;
+    ctx.fillStyle = '#a8501a';
+    ctx.fillRect(x0 - 10, y0 - 6, 20, ch + 6);
+    ctx.fillRect(x0 + cw - 10, y0 - 6, 20, ch + 6);
+    ctx.fillStyle = '#c8621e';
+    ctx.fillRect(x0, y0, cw, ch);
+    for (var b = 0; b < cw; b += 16){ ctx.fillRect(x0 + b, y0 - 7, 10, 7); }
+    ctx.fillStyle = '#2a1708';
+    ctx.beginPath();
+    ctx.moveTo(cx - 12, GROUND_Y);
+    ctx.lineTo(cx - 12, y0 + ch - 22);
+    ctx.arc(cx, y0 + ch - 22, 12, Math.PI, 0, false);
+    ctx.lineTo(cx + 12, GROUND_Y);
+    ctx.closePath(); ctx.fill();
   }
 
   function drawCloud(x, y){
@@ -498,30 +669,47 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
   }
 
   function drawPipe(x, y, w, h){
-    ctx.fillStyle = '#2E9E2E';
-    ctx.fillRect(x, y + 14, w, h - 14);
-    ctx.fillStyle = '#1F7A1F';
-    ctx.fillRect(x, y + 14, 5, h - 14);
-    ctx.fillStyle = '#3FBF3F';
-    ctx.fillRect(x - 4, y, w + 8, 16);
-    ctx.fillStyle = '#1F7A1F';
-    ctx.fillRect(x - 4, y, 5, 16);
-    ctx.strokeStyle = '#0F5C0F';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x - 4, y, w + 8, h);
+    ctx.fillStyle = '#2E9E2E'; ctx.fillRect(x, y + 14, w, h - 14);
+    ctx.fillStyle = '#1F7A1F'; ctx.fillRect(x, y + 14, 5, h - 14);
+    ctx.fillStyle = '#3FBF3F'; ctx.fillRect(x - 4, y, w + 8, 16);
+    ctx.fillStyle = '#1F7A1F'; ctx.fillRect(x - 4, y, 5, 16);
+    ctx.strokeStyle = '#0F5C0F'; ctx.lineWidth = 2; ctx.strokeRect(x - 4, y, w + 8, h);
   }
 
   function drawCoin(x, y, r){
-    ctx.save();
-    ctx.translate(x, y);
+    ctx.save(); ctx.translate(x, y);
     var grd = ctx.createRadialGradient(-r*0.3, -r*0.3, 1, 0, 0, r);
-    grd.addColorStop(0, '#FFF6C0');
-    grd.addColorStop(0.5, '#FFD700');
-    grd.addColorStop(1, '#B8860B');
-    ctx.fillStyle = grd;
-    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.fillRect(-3, -r + 3, 6, (r - 3) * 2);
+    grd.addColorStop(0, '#FFF6C0'); grd.addColorStop(0.5, '#FFD700'); grd.addColorStop(1, '#B8860B');
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(-3, -r + 3, 6, (r - 3) * 2);
+    ctx.restore();
+  }
+
+  function drawBigCoin(x, y, r){
+    ctx.save(); ctx.translate(x, y);
+    var grd = ctx.createRadialGradient(-r*0.3, -r*0.3, 2, 0, 0, r);
+    grd.addColorStop(0, '#FFFBD0'); grd.addColorStop(0.5, '#FFD700'); grd.addColorStop(1, '#B8860B');
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#8B6508'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, r - 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(-4, -r + 7, 8, (r - 7) * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(-r*0.35, -r*0.35, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawStar(x, y, r){
+    ctx.save(); ctx.translate(x, y);
+    ctx.beginPath();
+    for (var i = 0; i < 10; i++){
+      var ang = -Math.PI / 2 + i * Math.PI / 5;
+      var rad = (i % 2 === 0) ? r : r * 0.45;
+      var xx = Math.cos(ang) * rad, yy = Math.sin(ang) * rad;
+      if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+    }
+    ctx.closePath();
+    var grd = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+    grd.addColorStop(0, '#FFF6A0'); grd.addColorStop(1, '#FFC400');
+    ctx.fillStyle = grd; ctx.fill();
+    ctx.strokeStyle = '#C88A00'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
   }
 
@@ -530,21 +718,14 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
     ctx.translate(x, y);
     var s = MARIO_W / 16;
     function rect(px, py, pw, ph, color){ ctx.fillStyle = color; ctx.fillRect(px*s, py*s, pw*s, ph*s); }
-    // 帽子
     rect(4,0,8,2,'#E52222'); rect(3,2,10,2,'#E52222');
-    // 臉
     rect(3,4,2,1,'#C68642'); rect(5,4,6,3,'#C68642'); rect(11,4,2,1,'#C68642');
     rect(3,5,2,2,'#C68642'); rect(11,5,2,2,'#C68642');
-    // 眼睛
     rect(5,5,2,1,'#000'); rect(9,5,2,1,'#000');
-    // 鬍子
     rect(4,7,8,1,'#5C3317'); rect(3,8,10,1,'#5C3317');
-    // 身體
     rect(3,9,10,3,'#E52222');
     rect(5,9,2,1,'#FFD700'); rect(9,9,2,1,'#FFD700');
-    // 褲子
     rect(2,12,12,2,'#1a5cb5');
-    // 腳（跑步交替 / 跳躍併攏）
     if (jumping){
       rect(2,14,5,2,'#5C3317'); rect(9,14,5,2,'#5C3317');
     } else if (leg === 0){
@@ -565,7 +746,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 /* ============================================================
-   ▼▼▼ 貼上你的新 Firebase config（Mario 專案）▼▼▼
+   ▼▼▼ Firebase config（Mario 專案）▼▼▼
    後台排行榜 mario_leaderboard.html 須使用同一組設定
    ============================================================ */
 const firebaseConfig = {
@@ -577,7 +758,7 @@ const firebaseConfig = {
   messagingSenderId: "408758699932",
   appId: "1:408758699932:web:a80e4453f7a1f1b72d2a59"
 };
-const DB_PATH = "mario-scores";   // 後台排行榜路徑須一致
+const DB_PATH = "mario-scores";
 /* ============================================================ */
 
 let db = null, dbReady = false;
@@ -589,7 +770,6 @@ try {
   console.warn("Firebase 尚未設定，分數暫不上傳：", e);
 }
 
-// 同名保留最高分：先讀舊分，破紀錄才覆蓋
 window.uploadScore = async function(name, score){
   const statusEl = document.getElementById('upload-status');
   const setStatus = (txt, cls) => { if(statusEl){ statusEl.textContent = txt; statusEl.className = cls || ''; } };
