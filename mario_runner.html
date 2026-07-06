@@ -36,11 +36,29 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
 #gameover-screen { overflow-y: auto; justify-content: flex-start; padding-top: 30px; }
 #start-screen h1 {
   font-size: 22px; color: #FFD700; text-align: center; line-height: 1.5;
-  text-shadow: 3px 3px 0 #8B4513; font-weight: bold;
+  text-shadow: 3px 3px 0 #8B4513; font-weight: bold; white-space: nowrap;
 }
 #start-screen p {
   font-size: 12.5px; color: #fff; text-align: center; line-height: 1.9;
 }
+/* ── 規則說明畫面 ── */
+#rules-screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(0,0,40,0.9); z-index: 21; gap: 16px; padding: 26px 22px;
+}
+#rules-screen h1 {
+  font-size: 19px; color: #FFD700; text-align: center; line-height: 1.4;
+  text-shadow: 3px 3px 0 #8B4513; font-weight: bold; white-space: nowrap;
+}
+.rules-title {
+  font-size: 18px; color: #FFD700; font-weight: bold; letter-spacing: 1px;
+  text-shadow: 2px 2px 0 #8B4513;
+}
+.rules-list { list-style: none; display: flex; flex-direction: column; gap: 13px; width: 100%; max-width: 300px; }
+.rules-list li { display: flex; align-items: flex-start; gap: 11px; }
+.rules-list .ri { font-size: 20px; flex: none; width: 26px; text-align: center; line-height: 1.45; }
+.rules-list .rt { font-size: 13px; color: #fff; line-height: 1.5; letter-spacing: 0.02em; }
 #name-input {
   font-family: 'Courier New', Courier, monospace; font-size: 16px;
   text-align: center; padding: 12px 16px; width: 220px; max-width: 80%;
@@ -130,9 +148,21 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display
     <div>分數 <span class="val" id="score-val">0</span></div>
   </div>
 
-  <div id="start-screen">
-    <h1>🍄 MARIO<br>RUNNER</h1>
-    <p>點一下：跳躍<br>滯空中再點一下：二段跳（更高）<br><br>吃金幣加分・撞水管即結束<br>撐到終點就過關！</p>
+  <div id="rules-screen">
+    <h1>🍄 MARIO RUNNER</h1>
+    <div class="rules-title">玩法看這邊！</div>
+    <ul class="rules-list">
+      <li><span class="ri">🕹️</span><span class="rt">點一下跳，跳在空中再點一下，跳更高！</span></li>
+      <li><span class="ri">🚩</span><span class="rt">別撞到水管，撐到終點就過關～</span></li>
+      <li><span class="ri">🪙</span><span class="rt">活得越久分越高，金幣要撿，大金幣更賺！</span></li>
+      <li><span class="ri">⭐</span><span class="rt">吃到星星無敵幾秒，水管直接穿過去！</span></li>
+      <li><span class="ri">⏱️</span><span class="rt">看到「即將加速」倒數，就是要變快囉！</span></li>
+    </ul>
+    <button class="btn" id="next-btn">下一步 ▶</button>
+  </div>
+
+  <div id="start-screen" style="display:none">
+    <h1>🍄 MARIO RUNNER</h1>
     <input id="name-input" type="text" placeholder="輸入你的名字" maxlength="8" autocomplete="off">
     <button class="btn" id="start-btn">▶ 開始遊戲</button>
   </div>
@@ -192,6 +222,7 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
   var cv = document.getElementById('cv');
   var ctx = cv.getContext('2d');
   var startScreen = document.getElementById('start-screen');
+  var rulesScreen = document.getElementById('rules-screen');
   var goScreen = document.getElementById('gameover-screen');
   var timeVal = document.getElementById('time-val');
   var coinVal = document.getElementById('coin-val');
@@ -404,7 +435,10 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
     else if (mario.jumpsUsed < 2){ mario.vy = secondJumpVy(); mario.jumpsUsed = 2; }
   }
 
-  wrap.addEventListener('touchstart', function(e){ e.preventDefault(); doJump(); }, { passive: false });
+  wrap.addEventListener('touchstart', function(e){
+    if (state !== 'playing') return; // 非遊戲中不攔截，讓輸入框/按鈕正常點選並跳出鍵盤
+    e.preventDefault(); doJump();
+  }, { passive: false });
   wrap.addEventListener('mousedown', function(){ doJump(); });
 
   function startGame(){
@@ -417,6 +451,7 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
     starCooldown = 4 + Math.random() * 4;
     flag = null; finishPhase = null;
     cueIdx = 0; countdownEl.classList.remove('show');
+    rulesScreen.style.display = 'none';
     startScreen.style.display = 'none';
     goScreen.style.display = 'none';
     updateHud(0, 0, 0);
@@ -511,9 +546,17 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
 
   var startBtn = document.getElementById('start-btn');
   var restartBtn = document.getElementById('restart-btn');
+  var nextBtn = document.getElementById('next-btn');
   function bindButton(btn, callback){
     btn.addEventListener('touchend', function(e){ e.preventDefault(); callback(); }, { passive: false });
     btn.addEventListener('click', callback);
+  }
+
+  // 規則畫面 → 名字畫面（顯示即聚焦，於點擊手勢內 focus 以喚出手機鍵盤）
+  function goToNameScreen(){
+    rulesScreen.style.display = 'none';
+    startScreen.style.display = 'flex';
+    nameInput.focus();
   }
 
   function handleStart(){
@@ -524,6 +567,7 @@ var CLIENT_LOGO_SVG = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" vers
   }
   nameInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') handleStart(); });
 
+  bindButton(nextBtn, goToNameScreen);
   bindButton(startBtn, handleStart);
   bindButton(restartBtn, startGame);
 
